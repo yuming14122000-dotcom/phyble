@@ -23,6 +23,7 @@
 
   板載 LED（GPIO2）：開機閃組別（長閃 = 十位、短閃 = 個位；未設定 = 快閃 10 下）
                      之後每秒短亮 = 等待藍牙連線；恆亮 = phyphox 已連上
+  韌體版本：FW_VERSION（序列埠輸入 ? 會顯示）
   函式庫：phyphox BLE 1.3.1、OneWire、DallasTemperature；開發板 esp32 2.0.17
 */
 
@@ -31,6 +32,9 @@
 #include <Wire.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
+
+// ---------- 韌體版本（燒錄站「查看板子資訊」用來比對） ----------
+#define FW_VERSION "multi-2026.11.27"
 
 // ---------- 腳位 ----------
 #define LED_PIN    2
@@ -398,7 +402,7 @@ void buildExperiment() {
 // ---------- 序列埠 ----------
 void printInfo() {
   // 給燒錄網頁解析用，格式請勿更改
-  Serial.printf("PHYBLE GROUP=%02u MODE=%u NAME=%s\n", groupNo, modeNo, bleName);
+  Serial.printf("PHYBLE GROUP=%02u MODE=%u NAME=%s FW=%s\n", groupNo, modeNo, bleName, FW_VERSION);
   Serial.printf("模式 %u：%s\n", modeNo, MODE_NAMES[modeNo]);
   if (groupNo == 0) Serial.println("尚未設定組別。輸入 G 1 ~ G 99 設定（例如 G 3）。");
 }

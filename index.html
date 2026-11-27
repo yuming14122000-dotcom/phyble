@@ -56,6 +56,15 @@ button:focus-visible,input:focus-visible{outline:3px solid #2b7bff;outline-offse
 .filebtn{display:inline-flex;align-items:center;height:48px;padding:0 16px;border-radius:12px;border:1px dashed var(--line);cursor:pointer;font-weight:600;color:var(--ink)}
 .filebtn:focus-within{outline:3px solid #2b7bff}
 .fwdesc{color:var(--mute);margin:8px 0 0;font-size:15px}
+.infocard{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.infocard[hidden]{display:none}
+.infocard>div{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.infocard small{display:block;color:var(--mute);font-size:13px}
+.infocard b{font:700 17px "JetBrains Mono","Noto Sans TC",monospace;overflow-wrap:anywhere}
+.infocard .st{grid-column:1/-1;display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:700}
+.infocard .st.ok{border-color:var(--ok);color:var(--ok)}.infocard .st.old{border-color:var(--acc);color:#b4520f}
+.infocard .st button{height:40px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:700 14px "Figtree","Noto Sans TC",sans-serif;padding:0 12px;cursor:pointer}
+@media(max-width:600px){.infocard{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .status{margin-top:22px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px 20px}
 .msg{font-weight:700;font-size:18px;margin:0 0 10px}
 .msg.ok{color:var(--ok)}.msg.bad{color:var(--bad)}
@@ -104,6 +113,7 @@ td:first-child{font-family:"JetBrains Mono",monospace;white-space:nowrap}
     <div class="acts">
       <button class="btn primary" id="flash">燒錄韌體＋設定組別<span>第一次使用或要更新程式時按這個（約 40 秒）</span></button>
       <button class="btn ghost" id="setonly">只改組別／感測器（不重燒）<span>板子已有本程式：經 USB 序列埠寫入 NVS</span></button>
+      <button class="btn ghost" id="info">查看板子資訊<span>藍牙名稱、組別、感測器、韌體版本，是否需要更新</span></button>
       <a class="btn gobtn" href="wiring.html">接線引導（給學生）→<span>麵包板步驟圖，立體可旋轉，選感測器看接法</span></a>
       <label class="opt"><input type="checkbox" id="auto" checked>完成後自動跳到下一組（連續燒很多塊板子）</label>
     </div>
@@ -124,6 +134,7 @@ td:first-child{font-family:"JetBrains Mono",monospace;white-space:nowrap}
   </div>
 
   <div class="status">
+    <div class="infocard" id="infocard" hidden></div>
     <p class="msg" id="msg">準備就緒。插上 ESP32，選好韌體與組別後按「燒錄」。</p>
     <div class="bar"><i id="bar"></i></div>
     <details id="det">
@@ -246,7 +257,7 @@ const canSerial='serial' in navigator;
 if(!canSerial){$('warn').style.display='block';$('warn').textContent='這個瀏覽器不支援 Web Serial。請改用電腦版 Chrome 或 Edge（iPad 與手機不支援燒錄）。';}
 
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-function setBusy(b){busy=b;$('flash').disabled=b||!canSerial;$('setonly').disabled=b||!canSerial;$('mon').disabled=b||!canSerial;}
+function setBusy(b){busy=b;$('flash').disabled=b||!canSerial;$('setonly').disabled=b||!canSerial;$('info').disabled=b||!canSerial;$('mon').disabled=b||!canSerial;}
 setBusy(false);
 
 async function pickPort(){
@@ -290,7 +301,7 @@ async function openMon(resetFirst){
   })();
 }
 let waiter=null;
-function onLine(l){const m=l.match(/PHYBLE GROUP=(\d+)(?: MODE=(\d+))? NAME=(\S+)/);if(m&&waiter)waiter([m[0],m[1],m[3],m[2]]);}
+function onLine(l){const m=l.match(/PHYBLE GROUP=(\d+)(?: MODE=(\d+))? NAME=(\S+)(?: FW=(\S+))?/);if(m&&waiter)waiter([m[0],m[1],m[3],m[2],m[4]]);}
 function waitInfo(ms){return new Promise(res=>{const t=setTimeout(()=>{waiter=null;res(null)},ms);waiter=m=>{clearTimeout(t);waiter=null;res(m)}})}
 async function writeLine(s){const w=port.writable.getWriter();await w.write(new TextEncoder().encode(s+'\n'));w.releaseLock()}
 
@@ -357,6 +368,41 @@ $('setonly').onclick=async()=>{
   }finally{setBusy(false)}
 };
 
+const MODE_FB=['','溫度','光閘計時','轉速','電壓電流','馬達特性'];
+const escH=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function showInfo(m){
+  const box=$('infocard');
+  if(!m){box.hidden=true;say('沒有讀到 PhyBLE 的回應：板子裡可能是別的程式，或還沒燒過。按「燒錄韌體＋設定組別」就能燒入。','bad');return}
+  const g=parseInt(m[1]),md=m[3]?parseInt(m[3]):0,fw=m[4]||'';
+  const mname=md?((MODES[md]&&MODES[md].name)||MODE_FB[md]||('模式 '+md)):'';
+  const latest=(typeof FW!=='undefined'&&FW&&FW.fwid)||'';
+  let cls='old',st;
+  if(!md)st='這是第一版（只有超音波、沒有感測器模式），建議更新。';
+  else if(!fw)st='這是較早的多感測器版（沒有版本資訊），建議更新。';
+  else if(!latest)st='目前選的韌體沒有標示版本，無法比對。';
+  else if(fw===latest){cls='ok';st='已是最新版，不用重燒。'}
+  else st='和燒錄站上的版本（'+latest+'）不同，建議更新。';
+  box.innerHTML=`<div><small>藍牙名稱</small><b>${escH(m[2])}</b></div><div><small>組別</small><b>${g?escH(m[1]):'未設定'}</b></div>
+    <div><small>目前感測器</small><b>${md?escH(md+' '+mname):'—'}</b></div><div><small>韌體版本</small><b>${escH(fw||'（無）')}</b></div>
+    <div class="st ${cls}"><span>${st}</span>${cls==='old'&&g?`<button id="useinfo">用這塊板子的組別${md?'與感測器':''}重燒</button>`:''}</div>`;
+  box.hidden=false;
+  say(cls==='ok'?'讀取完成：這塊板子是最新版。':'讀取完成。',cls==='ok'?'ok':'');
+  const u=$('useinfo');if(u)u.onclick=()=>{if(g>=1&&g<=99)setGroup(g);if(md&&MODES[md]){mode=md;save();renderModes()}say(`已帶入第 ${pad(g)} 組${md?'、'+mname:''}，按「燒錄韌體＋設定組別」更新。`)};
+}
+$('info').onclick=async()=>{
+  setBusy(true);prog(0);$('infocard').hidden=true;
+  try{
+    await pickPort();await releasePort();
+    say('讀取板子資訊…（板子會重新開機一次）');
+    const w=waitInfo(6000);await openMon(true);let m=await w;
+    if(!m){const w2=waitInfo(3000);await writeLine('?');m=await w2;}
+    showInfo(m);
+  }catch(e){
+    if(e&&e.name==='NotFoundError')say('沒有選擇序列埠。');
+    else if(isOpenErr(e)){await releasePort();port=null;say(OPEN_HINT,'bad');}
+    else say('讀取失敗：'+(e&&e.message||e),'bad');
+  }finally{setBusy(false)}
+};
 $('mon').onclick=async()=>{try{await pickPort();if(monOn)await closeMon();else{$('det').open=true;await openMon(false);await writeLine('?')}}catch(e){if(isOpenErr(e)){await releasePort();port=null;say(OPEN_HINT,'bad')}else if(e&&e.name!=='NotFoundError')say('無法開啟序列埠：'+e.message,'bad')}};
 $('send').onclick=async()=>{const v=$('cmd').value.trim();if(!v)return;try{if(!monOn){await pickPort();await openMon(false)}await writeLine(v);$('cmd').value=''}catch(e){say('送出失敗：'+e.message,'bad')}};
 $('cmd').addEventListener('keydown',e=>{if(e.key==='Enter')$('send').click()});
