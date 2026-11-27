@@ -117,7 +117,7 @@ const ROWS={j:0,i:1,h:2,g:3,f:4,e:6,d:7,c:8,b:9,a:10};
 const cx=c=>BX+40+(c-1)*P;
 const ry=r=>r==='+'?BY+392:r==='-'?BY+414:r==='T+'?BY+22:r==='T-'?BY+44:BY+82+ROWS[r]*P;
 const hole=(c,r)=>[cx(c),ry(r)];
-const hname=(c,r)=>r==='+'?`下方 + 軌（第 ${c} 孔附近）`:r==='-'?`下方 − 軌（第 ${c} 孔附近）`:`${c}${r}`;
+const hname=(c,r)=>r==='+'?`下方 + 軌（第 ${c} 孔附近）`:r==='-'?`下方 − 軌（第 ${c} 孔附近）`:`${r}${c}`;
 const C={red:'#e23b2e',black:'#22262b',yellow:'#f2c230',green:'#1f9d55',blue:'#2f6fec',orange:'#f28a1d',purple:'#8a4fd8',white:'#f4f4f4',brown:'#8a5a2b',gray:'#9aa3ab'};
 const CN={red:'紅',black:'黑',yellow:'黃',green:'綠',blue:'藍',orange:'橙',purple:'紫',white:'白',brown:'棕',gray:'灰'};
 
@@ -165,10 +165,10 @@ const MODES={
   steps:[
    {h:'準備材料',p:'這個練習不用感測器：外接一顆 LED，看它是否跟板子上的藍燈一起閃，確認燒錄和組別都正常。'},
    {h:'GND 接到麵包板 − 軌',p:'只需要接地線（LED 用 GPIO2 供電）。'},
-   {h:'放 220 Ω 電阻',p:'電阻兩腳插 8g 和 12g，方向不拘。',warn:'一定要有電阻，否則 LED 和 ESP32 都可能燒壞。'},
-   {h:'放 LED',p:'長腳（+，陽極）插 12i，短腳（−，陰極）插 13i。12 號直排和電阻相連。',warn:'LED 有方向：長腳接電阻那側，短腳接地。'},
+   {h:'放 220 Ω 電阻',p:'電阻兩腳插 g8 和 g12，方向不拘。',warn:'一定要有電阻，否則 LED 和 ESP32 都可能燒壞。'},
+   {h:'放 LED',p:'長腳（+，陽極）插 i12，短腳（−，陰極）插 i13。12 號直排和電阻相連。',warn:'LED 有方向：長腳接電阻那側，短腳接地。'},
    {h:'GPIO2 接到電阻',p:'這條線把 ESP32 的訊號送到電阻。'},
-   {h:'LED 短腳接地',p:'從 13f 接一條黑線到下方 − 軌。'},
+   {h:'LED 短腳接地',p:'從 f13 接一條黑線到下方 − 軌。'},
    {h:'完成！',p:'插上 USB，LED 應會先閃出組別號碼（長閃 = 十位、短閃 = 個位），之後每秒閃一下；phyphox 連上後恆亮。'}]},
  dsprobe:{name:'溫度：DS18B20 防水探頭（三條線）',phy:'1 溫度',
   parts:['ESP32 開發板 ×1','麵包板 ×1','DS18B20 防水探頭 ×1','4.7 kΩ 電阻 ×1（黃紫紅）','公對公杜邦線 ×5'],
@@ -181,10 +181,10 @@ const MODES={
   steps:[
    {h:'準備材料',p:'探頭的三條線：紅 = VCC、黑 = GND、黃 = DQ（資料）。少數產品顏色不同，請看包裝說明。'},
    {h:'電源軌：3.3V 與 GND',p:'把 ESP32 的 3.3V 接到下方 + 軌（紅線），GND 接到 − 軌（黑線）。之後所有元件都從這兩條軌取電。',warn:'接 3.3V，不要接 VIN / 5V。'},
-   {h:'插入探頭三條線',p:'黃線插 15h、紅線插 16h、黑線插 17h。',warn:'探頭是多股細線，不好插的話先擰緊或接杜邦端子。'},
-   {h:'加 4.7 kΩ 上拉電阻',p:'電阻插 15g 和 16g，把 DQ 和 VCC 連起來。沒有這顆電阻會讀不到溫度。'},
-   {h:'探頭接電源',p:'16f（紅線那排）接到 + 軌；17f（黑線那排）接到 − 軌。'},
-   {h:'資料線接到 GPIO4',p:'15f（黃線那排）接到 ESP32 的 GPIO4。'},
+   {h:'插入探頭三條線',p:'黃線插 h15、紅線插 h16、黑線插 h17。',warn:'探頭是多股細線，不好插的話先擰緊或接杜邦端子。'},
+   {h:'加 4.7 kΩ 上拉電阻',p:'電阻插 g15 和 g16，把 DQ 和 VCC 連起來。沒有這顆電阻會讀不到溫度。'},
+   {h:'探頭接電源',p:'f16（紅線那排）接到 + 軌；f17（黑線那排）接到 − 軌。'},
+   {h:'資料線接到 GPIO4',p:'f15（黃線那排）接到 ESP32 的 GPIO4。'},
    {h:'完成！',p:'在 phyphox 的「換感測器」選「1 溫度」。可以並聯第二支探頭（三條線插在同樣三排），會顯示溫度 2。'}]},
  dsmod:{name:'溫度：DS18B20 模組板',phy:'1 溫度',
   parts:['ESP32 開發板 ×1','麵包板 ×1','DS18B20 模組板（含探頭）×1','公對公杜邦線 ×5'],
@@ -196,9 +196,9 @@ const MODES={
   steps:[
    {h:'準備材料',p:'模組板上已有 4.7 kΩ 上拉電阻，不用另外加。'},
    {h:'電源軌：3.3V 與 GND',p:'ESP32 的 3.3V 接 + 軌（紅），GND 接 − 軌（黑）。',warn:'接 3.3V，不要接 VIN / 5V。'},
-   {h:'插入模組板',p:'三支腳插 15j、16j、17j，板子朝圖的上方。',warn:'圖上的腳位順序是 DQ / VCC / GND；請以你手上板子的絲印為準，順序不同就跟著換線。'},
-   {h:'模組接電源',p:'VCC 那排（16g）接 + 軌，GND 那排（17g）接 − 軌。'},
-   {h:'DQ 接到 GPIO4',p:'DQ 那排（15g）接到 ESP32 的 GPIO4。'},
+   {h:'插入模組板',p:'三支腳插 j15、j16、j17，板子朝圖的上方。',warn:'圖上的腳位順序是 DQ / VCC / GND；請以你手上板子的絲印為準，順序不同就跟著換線。'},
+   {h:'模組接電源',p:'VCC 那排（g16）接 + 軌，GND 那排（g17）接 − 軌。'},
+   {h:'DQ 接到 GPIO4',p:'DQ 那排（g15）接到 ESP32 的 GPIO4。'},
    {h:'完成！',p:'在 phyphox 的「換感測器」選「1 溫度」。'}]},
  gate:{name:'光閘：XD-51 槽型光耦',phy:'2 光閘計時',
   parts:['ESP32 開發板 ×1','麵包板 ×1','XD-51 測速（槽型光耦）模組 ×1','公對公杜邦線 ×5','擋光片（紙卡、尺）'],
@@ -210,9 +210,9 @@ const MODES={
   steps:[
    {h:'準備材料',p:'槽型光耦的 U 形槽一邊發紅外光、一邊接收；東西穿過槽時就會「遮光」。'},
    {h:'電源軌：3.3V 與 GND',p:'ESP32 的 3.3V 接 + 軌（紅），GND 接 − 軌（黑）。',warn:'用 3.3V 供電，輸出才不會超過 ESP32 能承受的電壓。'},
-   {h:'插入 XD-51 模組',p:'四支腳插 18j～21j，U 形槽朝圖的上方。',warn:'圖上的腳位順序是 VCC / GND / DO / AO；請以板子絲印為準。AO 不用接。'},
-   {h:'模組接電源',p:'VCC 那排（18g）接 + 軌，GND 那排（19g）接 − 軌。'},
-   {h:'DO 接到 GPIO27',p:'DO 那排（20g）接到 ESP32 的 GPIO27。'},
+   {h:'插入 XD-51 模組',p:'四支腳插 j18～j21，U 形槽朝圖的上方。',warn:'圖上的腳位順序是 VCC / GND / DO / AO；請以板子絲印為準。AO 不用接。'},
+   {h:'模組接電源',p:'VCC 那排（g18）接 + 軌，GND 那排（g19）接 − 軌。'},
+   {h:'DO 接到 GPIO27',p:'DO 那排（g20）接到 ESP32 的 GPIO27。'},
    {h:'完成！',p:'在 phyphox 選「2 光閘計時」。開機時槽內不要有東西。速度 = 擋光片寬度 ÷ 遮光時間；單擺週期看「間隔」。'}]},
  hall:{name:'轉速：霍爾感測器模組',phy:'3 轉速',
   parts:['ESP32 開發板 ×1','麵包板 ×1','霍爾感測器模組 ×1','小磁鐵 ×1（貼在轉盤上）','公對公杜邦線 ×5'],
@@ -224,9 +224,9 @@ const MODES={
   steps:[
    {h:'準備材料',p:'磁鐵經過霍爾感測器時，DO 腳會改變電位；每轉一圈經過一次，就能算出轉速。'},
    {h:'電源軌：3.3V 與 GND',p:'ESP32 的 3.3V 接 + 軌（紅），GND 接 − 軌（黑）。'},
-   {h:'插入霍爾模組',p:'三支腳插 18j～20j，感測頭朝圖的上方。',warn:'圖上的腳位順序是 VCC / GND / DO；請以板子絲印為準。有 AO 腳的不用接。'},
-   {h:'模組接電源',p:'VCC 那排（18g）接 + 軌，GND 那排（19g）接 − 軌。'},
-   {h:'DO 接到 GPIO26',p:'DO 那排（20g）接到 ESP32 的 GPIO26。'},
+   {h:'插入霍爾模組',p:'三支腳插 j18～j20，感測頭朝圖的上方。',warn:'圖上的腳位順序是 VCC / GND / DO；請以板子絲印為準。有 AO 腳的不用接。'},
+   {h:'模組接電源',p:'VCC 那排（g18）接 + 軌，GND 那排（g19）接 − 軌。'},
+   {h:'DO 接到 GPIO26',p:'DO 那排（g20）接到 ESP32 的 GPIO26。'},
    {h:'完成！',p:'在 phyphox 選「3 轉速」，並用滑桿設定轉盤上的磁鐵數。開機時磁鐵不要停在感測器前。'}]},
  ina:{name:'電壓電流：INA219（量 LED 電路）',phy:'4 電壓電流',
   parts:['ESP32 開發板 ×1','麵包板 ×1','INA219 模組 ×1','220 Ω 電阻 ×1（紅紅棕）','LED ×1','公對公杜邦線 ×8'],
@@ -243,12 +243,12 @@ const MODES={
   steps:[
    {h:'準備材料',p:'INA219 串在電路中，量流過的電流與電壓。這裡用 ESP32 的 3.3V 點亮一顆 LED 當待測電路。'},
    {h:'電源軌：3.3V 與 GND',p:'ESP32 的 3.3V 接 + 軌（紅），GND 接 − 軌（黑）。'},
-   {h:'插入 INA219',p:'六支腳插 8j～13j：VCC、GND、SCL、SDA、VIN−、VIN+，板子朝圖的上方。',warn:'請以板子絲印核對順序。VIN−、VIN+ 用排針，不用螺絲端子。'},
-   {h:'INA219 接電源',p:'VCC 那排（8g）接 + 軌，GND 那排（9g）接 − 軌。'},
-   {h:'I2C 兩條線',p:'SCL（10g）接 GPIO22，SDA（11g）接 GPIO21。'},
-   {h:'待測電源接 VIN+',p:'VIN+ 那排（13f）接到 + 軌：電流從這裡流進 INA219。'},
-   {h:'VIN− 接負載（電阻 + LED）',p:'220 Ω 電阻插 12i 和 17i；LED 長腳插 17g、短腳插 18g。'},
-   {h:'LED 短腳接地',p:'18f 接到 − 軌，電流回到 GND，電路完成。'},
+   {h:'插入 INA219',p:'六支腳插 j8～j13：VCC、GND、SCL、SDA、VIN−、VIN+，板子朝圖的上方。',warn:'請以板子絲印核對順序。VIN−、VIN+ 用排針，不用螺絲端子。'},
+   {h:'INA219 接電源',p:'VCC 那排（g8）接 + 軌，GND 那排（g9）接 − 軌。'},
+   {h:'I2C 兩條線',p:'SCL（g10）接 GPIO22，SDA（g11）接 GPIO21。'},
+   {h:'待測電源接 VIN+',p:'VIN+ 那排（f13）接到 + 軌：電流從這裡流進 INA219。'},
+   {h:'VIN− 接負載（電阻 + LED）',p:'220 Ω 電阻插 i12 和 i17；LED 長腳插 g17、短腳插 g18。'},
+   {h:'LED 短腳接地',p:'f18 接到 − 軌，電流回到 GND，電路完成。'},
    {h:'完成！',p:'在 phyphox 選「4 電壓電流」，應看到約 3V 以下、幾 mA 的電流。換不同電阻或燈泡，比較 V-I 圖。',warn:'要量其他電源（電池）時：電池 + 接 VIN+，負載接 VIN−，電池 − 一定要和 ESP32 GND 接在一起。上限 26V、3.2A。'}]},
  motor:{name:'馬達：L9110S + 霍爾測轉速',phy:'5 馬達特性',
   parts:['ESP32 開發板 ×1','麵包板 ×1','L9110S 馬達驅動模組 ×1','小型直流馬達 ×1（附轉盤與磁鐵）','霍爾感測器模組 ×1','4 號電池盒 ×1（4 顆，6V）','公對母杜邦線 ×4、公對公杜邦線 ×5'],
@@ -268,8 +268,8 @@ const MODES={
    {h:'放 L9110S、接馬達',p:'L9110S 放在麵包板右邊，馬達兩條線鎖進「MOTOR A」端子。',warn:'L9110S 的排針用公對母杜邦線連接。'},
    {h:'控制線 A-IA、A-IB',p:'A-IA 接 GPIO25，A-IB 接 GPIO33。'},
    {h:'馬達電源（電池盒）',p:'電池盒 + 接 L9110S 的 VCC，電池盒 − 接 L9110S 的 GND；L9110S 的 GND 再接回麵包板 − 軌（共地）。',warn:'馬達不可以用 ESP32 的 3.3V 供電。一定要共地，否則控制訊號無效。'},
-   {h:'霍爾感測器',p:'霍爾模組插 18j～20j；VCC（18g）接 + 軌，GND（19g）接 − 軌。',warn:'把霍爾感測器固定在轉盤旁，磁鐵轉過時要靠近感測頭（約 5 mm 內）。'},
-   {h:'DO 接到 GPIO26',p:'霍爾模組 DO（20g）接到 ESP32 的 GPIO26。'},
+   {h:'霍爾感測器',p:'霍爾模組插 j18～j20；VCC（g18）接 + 軌，GND（g19）接 − 軌。',warn:'把霍爾感測器固定在轉盤旁，磁鐵轉過時要靠近感測頭（約 5 mm 內）。'},
+   {h:'DO 接到 GPIO26',p:'霍爾模組 DO（g20）接到 ESP32 的 GPIO26。'},
    {h:'完成！',p:'在 phyphox 選「5 馬達特性」，用滑桿調輸出（負值反轉），觀察轉速與電流。要量電流的話，把 INA219 串在電池盒 + 和 L9110S VCC 之間（SDA→21、SCL→22）。'}]}
 };
 
@@ -291,7 +291,7 @@ function drawBreadboard(g){
   for(let c=1;c<=COLS;c++){
     for(const r of ['T+','T-','+','-']) if(c%6!==0) el('rect',{x:cx(c)-3.5,y:ry(r)-3.5,width:7,height:7,rx:1.5,fill:'#3a3a3a'},g);
     for(const r in ROWS) el('rect',{x:cx(c)-3.5,y:ry(r)-3.5,width:7,height:7,rx:1.5,fill:'#3a3a3a'},g);
-    if(c===1||c%5===0){txt(cx(c),ry('j')-12,c,{'font-size':10,fill:'#8a8270','text-anchor':'middle',class:'lbl'},g);txt(cx(c),ry('a')+20,c,{'font-size':10,fill:'#8a8270','text-anchor':'middle',class:'lbl'},g)}
+    {txt(cx(c),ry('j')-12,c,{'font-size':10,fill:'#8a8270','text-anchor':'middle',class:'lbl'},g);txt(cx(c),ry('a')+20,c,{'font-size':10,fill:'#8a8270','text-anchor':'middle',class:'lbl'},g)}
   }
   for(const r in ROWS){txt(BX+22,ry(r)+4,r,{'font-size':11,fill:'#8a8270','text-anchor':'middle',class:'lbl'},g);txt(BX+W-22,ry(r)+4,r,{'font-size':11,fill:'#8a8270','text-anchor':'middle',class:'lbl'},g)}
 }
@@ -513,7 +513,7 @@ function bbTexture(W,H){
       for(const r in ROWS)g.fillRect(X(cx(c))-3.5,Y(ry(r))-3.5,7,7);
     }
     g.fillStyle='#8a8270';g.font='700 10px monospace';g.textAlign='center';
-    for(let c=1;c<=COLS;c++)if(c===1||c%5===0){g.fillText(c,X(cx(c)),Y(ry('j'))-12);g.fillText(c,X(cx(c)),Y(ry('a'))+20)}
+    for(let c=1;c<=COLS;c++){g.fillText(c,X(cx(c)),Y(ry('j'))-12);g.fillText(c,X(cx(c)),Y(ry('a'))+20)}
     g.font='700 11px monospace';for(const r in ROWS){g.fillText(r,22,Y(ry(r))+4);g.fillText(r,W-22,Y(ry(r))+4)}
   },3);
 }
@@ -728,9 +728,9 @@ function render(){
   // 步驟卡
   const st=M.steps[step];
   const conns=M.items.filter(it=>it.s===step).map(endpointText).filter(Boolean);
-  const holes=M.items.filter(it=>it.s===step&&it.t==='res').map(it=>`電阻 ${it.val}：${it.a.join('')} ↔ ${it.b.join('')}`)
-    .concat(M.items.filter(it=>it.s===step&&it.t==='led').map(it=>`LED：長腳 ${it.a.join('')}、短腳 ${it.k.join('')}`))
-    .concat(M.items.filter(it=>it.s===step&&it.t==='mod').map(it=>`${it.name}：`+it.cols.map((c,i)=>`${it.pins[i]} ${c}j`).join('、')));
+  const holes=M.items.filter(it=>it.s===step&&it.t==='res').map(it=>`電阻 ${it.val}：${hname(...it.a)} ↔ ${hname(...it.b)}`)
+    .concat(M.items.filter(it=>it.s===step&&it.t==='led').map(it=>`LED：長腳 ${hname(...it.a)}、短腳 ${hname(...it.k)}`))
+    .concat(M.items.filter(it=>it.s===step&&it.t==='mod').map(it=>`${it.name}：`+it.cols.map((c,i)=>`${it.pins[i]} j${c}`).join('、')));
   $('steps').innerHTML=`
     <div class="prog"><b>步驟 <span>${step+1}</span> / ${N}</b><div class="dots">${M.steps.map((_,i)=>`<i class="${i<step?'d':i===step?'c':''}"></i>`).join('')}</div></div>
     <h2>${st.h}</h2>
@@ -739,7 +739,7 @@ function render(){
     ${conns.length?`<ul class="conn">${conns.map(([c,t])=>`<li><span class="sw" style="background:${wireColor(c)}"></span><span>${CN[c]||''}線：<code>${t}</code></span></li>`).join('')}</ul>`:''}
     ${holes.length?`<div class="card"><b>插孔位置</b><ul>${holes.map(h=>`<li>${h}</li>`).join('')}</ul></div>`:''}
     ${step===0?`<div class="card"><b>材料</b><ul>${M.parts.map(x=>`<li>${x}</li>`).join('')}</ul></div>
-      <div class="card"><b>板子擺法</b><ul><li>${BOARDS[board].name}：天線朝上、USB 朝下</li><li>麵包板直排用數字（1～30）、橫列用字母（a～j）表示，例如 15g</li><li>同一直排的 a–e 相通、f–j 相通；下方兩條長軌 + / − 整排相通</li></ul></div>`:''}
+      <div class="card"><b>板子擺法</b><ul><li>${BOARDS[board].name}：天線朝上、USB 朝下</li><li>麵包板直排用數字（1～30）、橫列用字母（a～j）表示，孔位寫成「字母 + 數字」，例如 g15</li><li>同一直排的 a–e 相通、f–j 相通；下方兩條長軌 + / − 整排相通</li></ul></div>`:''}
     ${M.phy?`<p>phyphox「換感測器」要選：<span class="mode">${M.phy}</span></p>`:''}`;
   $('prev').disabled=step===0;
   $('next').textContent=step===N-1?'重新開始 ↺':'下一步 ›';
