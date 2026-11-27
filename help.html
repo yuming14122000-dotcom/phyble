@@ -218,20 +218,23 @@ figcaption{font-size:14px;color:var(--mute);margin-top:6px;text-align:center}
     <div>
       <ol class="steps">
         <li><b>滑到最後一頁「換感測器」</b><p>實驗上方的分頁列最右邊。</p></li>
-        <li><b>在「感測器」選單選這堂課的感測器</b><p>例如「2 光閘計時 (XD-51)」。</p></li>
-        <li><b>按上方 ▶</b><p>板子收到後會儲存設定並自動重開（約 3 秒），phyphox 會顯示連線中斷，這是正常的。</p></li>
+        <li><b>在「感測器編號」輸入這堂課的編號</b><p>1 溫度、2 光閘計時、3 轉速、4 電壓電流、5 馬達特性。</p></li>
+        <li><b>按上方 ▶</b><p>板子收到後藍燈會閃出新編號，接著自動重開（約 3 秒）；phyphox 會顯示連線中斷，這是正常的。藍燈若一直恆亮沒有閃，代表板子沒收到，請看下方「沒有 iPad 也能換」。</p></li>
         <li><b>回到 phyphox 首頁，用 ＋ 重新加入同一個 PHY-Gxx</b><p>新的實驗標題會是新的感測器，例如「光閘計時 PHY-G03」。</p></li>
       </ol>
       <p class="tip">選好的感測器會記在板子裡，拔電後也不會消失；下次上課同一個實驗直接用就好。</p>
+      <h3>沒有 iPad 也能換：長按 BOOT 鍵</h3>
+      <p>長按板子上的 <b>BOOT</b> 鍵 1 秒，會切到下一個感測器（1→2→…→5→1）。藍燈閃幾下就是新的編號，接著自動重開。老師也可以用燒錄站的「只改組別／感測器」直接指定。</p>
     </div>
     <figure>
       <div class="pad"><div class="scr">
         <div class="bar"><span class="t">溫度 PHY-G03</span><span class="ic ring">▶</span><span class="ic">⋮</span></div>
         <div class="tabs"><span>溫度</span><span class="on">換感測器</span></div>
-        <div class="dd ring"><span>感測器</span><b>2 光閘計時 (XD-51) ▾</b></div>
-        <div class="small">選好後按上方 ▶ 開始，ESP32 會儲存並自動重開（約 3 秒）。接著回到 phyphox 首頁，重新加入藍牙實驗，選同一個 PHY-G 名稱。</div>
+        <div class="small" style="padding-top:12px">輸入感測器編號：1 溫度｜2 光閘計時｜3 轉速｜4 電壓電流｜5 馬達特性</div>
+        <div class="dd ring"><span>感測器編號</span><b>2</b></div>
+        <div class="small">輸入編號後按上方 ▶ 開始，ESP32 會儲存並自動重開（約 3 秒，藍燈會先閃出編號）。接著回到 phyphox 首頁，重新加入藍牙實驗，選同一個 PHY-G 名稱。</div>
       </div></div>
-      <figcaption>「換感測器」分頁：選好按 ▶（示意圖）</figcaption>
+      <figcaption>「換感測器」分頁：輸入編號後按 ▶（示意圖）</figcaption>
     </figure>
   </div>
 </div></section>
@@ -270,9 +273,9 @@ figcaption{font-size:14px;color:var(--mute);margin-top:6px;text-align:center}
     <tbody>
       <tr><td>1 溫度 DS18B20</td><td>DQ → GPIO4</td><td>溫度對時間，可接兩支探頭</td><td>裸探頭要加 4.7 kΩ 電阻（模組板已內建）</td></tr>
       <tr><td>2 光閘 XD-51</td><td>DO → GPIO27</td><td>遮光時間、間隔、次數</td><td>開機時槽內不要有東西；速度 = 擋片寬 ÷ 遮光時間</td></tr>
-      <tr><td>3 轉速 霍爾</td><td>DO → GPIO26</td><td>轉速 rpm、週期</td><td>轉盤貼磁鐵，用滑桿設定磁鐵數；開機時磁鐵不要停在感測器前</td></tr>
+      <tr><td>3 轉速 霍爾</td><td>DO → GPIO26</td><td>轉速 rpm、週期</td><td>轉盤貼磁鐵，在「每圈磁鐵數」輸入數量；開機時磁鐵不要停在感測器前</td></tr>
       <tr><td>4 電壓電流 INA219</td><td>SDA → 21、SCL → 22</td><td>電壓、電流、功率、V-I 圖</td><td>待測電路負極要和 ESP32 GND 接在一起；上限 26V、3.2A</td></tr>
-      <tr><td>5 馬達 L9110S</td><td>A-IA → 25、A-IB → 33</td><td>滑桿調輸出 −100～100%，轉速、電壓、電流</td><td>馬達用電池盒供電，不能用 ESP32 的 3.3V；要共地</td></tr>
+      <tr><td>5 馬達 L9110S</td><td>A-IA → 25、A-IB → 33</td><td>輸入輸出 −100～100%（量測中改數字即時生效），轉速、電壓、電流</td><td>馬達用電池盒供電，不能用 ESP32 的 3.3V；要共地</td></tr>
     </tbody>
   </table>
 </div></section>
@@ -285,7 +288,7 @@ figcaption{font-size:14px;color:var(--mute);margin-top:6px;text-align:center}
       <tr><td>iPad 找不到 PHY-Gxx</td><td>確認藍燈每秒在閃；別台 iPad 是否已連著這塊板子（一次只能連一台）；iPad 藍牙有沒有開、有沒有允許 phyphox 使用藍牙。</td></tr>
       <tr><td>圖表沒有資料</td><td>有沒有按 ▶；標題是不是這堂課的感測器；接線照引導、VCC 接 3.3V、GND 有共地。</td></tr>
       <tr><td>藍燈快速連閃 10 下</td><td>板子還沒設定組別，請老師用燒錄站設定。</td></tr>
-      <tr><td>換感測器後畫面沒變</td><td>要回 phyphox 首頁用 ＋ 重新加入；舊的實驗畫面不會自動更新。</td></tr>
+      <tr><td>換感測器後畫面沒變</td><td>要回 phyphox 首頁用 ＋ 重新加入；舊的實驗畫面不會自動更新。按 ▶ 後藍燈一直恆亮、沒有閃出編號：板子沒收到，改用長按 BOOT 鍵切換。</td></tr>
       <tr><td>溫度顯示不出來</td><td>DS18B20 黃線接 GPIO4，裸探頭一定要有 4.7 kΩ 電阻。</td></tr>
       <tr><td>光閘 / 霍爾一直沒反應或亂跳</td><td>開機時槽內有東西或磁鐵停在感測器前：清空後按板子 EN 鍵重開。</td></tr>
       <tr><td>燒錄站打不開序列埠</td><td>關掉 Arduino IDE 序列埠監控和其他燒錄分頁，USB 拔掉再插回。</td></tr>
