@@ -396,7 +396,7 @@ $('setonly').onclick=async()=>{
 const WF=['ws1','wp1','ws2','wp2'];
 // 預設第二組 = 全班共用熱點 PHYBLE（任何人把手機熱點改成這個名稱、密碼，所有板子都能用）
 let wSaved=null;try{wSaved=localStorage.getItem('phyble-wifi')}catch(e){}
-if(!wSaved){$('ws2').value='PHYBLE';$('wp2').value='phyble2026'}
+if(!wSaved){$('ws2').value='PHYBLE';$('wp2').value='phy12345'}
 try{const w=JSON.parse(localStorage.getItem('phyble-wifi')||'{}');WF.forEach(k=>{if(w[k])$(k).value=w[k]});if(localStorage.getItem('phyble-wifikeep')==='0')$('wkeep').checked=false}catch(e){}
 function wifiItems(){const o=[];if($('ws1').value.trim())o.push(['wssid',$('ws1').value.trim()],['wpass',$('wp1').value]);if($('ws2').value.trim())o.push(['wssid2',$('ws2').value.trim()],['wpass2',$('wp2').value]);return o}
 function wifiSave(){
