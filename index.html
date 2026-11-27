@@ -32,6 +32,8 @@ h1{font-size:clamp(28px,4vw,40px);line-height:1.05;margin:0 0 6px;font-weight:80
 .btn span{font-weight:500;font-size:14px;opacity:.85}
 .primary{background:var(--acc);color:var(--acc-ink);min-height:84px;font-size:22px}
 .primary:hover{filter:brightness(1.06)}
+.gobtn{background:#2f6fec;color:#fff;text-decoration:none}
+.gobtn:hover{filter:brightness(1.08)}
 .ghost{background:var(--panel);color:var(--ink);border:1px solid var(--line)}
 .btn:disabled{opacity:.45;cursor:not-allowed}
 button:focus-visible,input:focus-visible{outline:3px solid #2b7bff;outline-offset:2px}
@@ -86,7 +88,6 @@ td:first-child{font-family:"JetBrains Mono",monospace;white-space:nowrap}
 <section class="band"><div class="wrap">
   <h1>PhyBLE 燒錄站</h1>
   <p class="sub">ESP32 多感測器 → iPad phyphox。選組別與起始感測器、插上 USB、按一下：韌體、組別、感測器一起寫入。藍牙名稱 PHY-G01、PHY-G02…；學生之後也能在 phyphox 的「換感測器」分頁自己切換。</p>
-  <p style="margin:-10px 0 20px"><a href="wiring.html" style="font-weight:700;color:var(--acc)">給學生看的接線引導（麵包板步驟圖）→</a></p>
   <p class="warn" id="warn"></p>
 
   <div class="top">
@@ -103,6 +104,7 @@ td:first-child{font-family:"JetBrains Mono",monospace;white-space:nowrap}
     <div class="acts">
       <button class="btn primary" id="flash">燒錄韌體＋設定組別<span>第一次使用或要更新程式時按這個（約 40 秒）</span></button>
       <button class="btn ghost" id="setonly">只改組別／感測器（不重燒）<span>板子已有本程式：經 USB 序列埠寫入 NVS</span></button>
+      <a class="btn gobtn" href="wiring.html">接線引導（給學生）→<span>麵包板步驟圖，立體可旋轉，選感測器看接法</span></a>
       <label class="opt"><input type="checkbox" id="auto" checked>完成後自動跳到下一組（連續燒很多塊板子）</label>
     </div>
   </div>

@@ -27,13 +27,17 @@ body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 "Noto Sans TC"
 .seg button{height:42px;padding:0 14px;border:0;background:transparent;color:#fff;font:700 15px "Noto Sans TC",sans-serif;cursor:pointer}
 .seg button.on{background:#fff;color:var(--bar)}
 main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 400px;min-height:0}
-.stage{position:relative;overflow:auto;padding:16px;display:flex;align-items:center;justify-content:center}
+.stage{position:relative;overflow:auto;padding:16px;display:flex;align-items:center;justify-content:center;min-height:420px}
 .stage .tools{position:absolute;right:16px;top:12px;display:flex;gap:8px;z-index:2}
 .chip{height:40px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:700 14px "Noto Sans TC",sans-serif;padding:0 12px;cursor:pointer;box-shadow:0 2px 8px #0001}
 .chip.on{background:var(--acc);color:#fff;border-color:var(--acc)}
-.wrap3d{width:100%;max-width:1280px;transition:transform .5s ease;transform-origin:50% 60%}
-.wrap3d.tilt{transform:perspective(1400px) rotateX(38deg) rotateZ(-8deg) scale(.92)}
-@media (prefers-reduced-motion:reduce){.wrap3d{transition:none}}
+.wrap3d{width:100%;max-width:1280px}
+.v3{position:absolute;inset:0;display:none;cursor:grab}.v3:active{cursor:grabbing}
+.stage.is3d .v3{display:block}.stage.is3d .wrap3d{display:none}
+.stage .cam{position:absolute;left:16px;bottom:14px;display:none;gap:8px;z-index:2;flex-wrap:wrap;align-items:center}
+.stage.is3d .cam{display:flex}
+.hint{font-size:13px;color:var(--mute);background:var(--panel);border-radius:8px;padding:6px 10px}
+.nowebgl{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:24px;color:var(--mute)}
 svg#board{width:100%;height:auto;display:block;filter:drop-shadow(0 18px 24px #0002)}
 .side{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
 .steps{padding:20px 22px;overflow:auto;flex:1}
@@ -82,12 +86,15 @@ button:focus-visible,select:focus-visible{outline:3px solid #6ea0ff;outline-offs
     <option value="38">ESP32 DevKitC 38 腳</option>
   </select>
   <div class="sp"></div>
-  <div class="seg" role="group" aria-label="視角"><button id="v3d">立體</button><button id="v2d" class="on">平面</button></div>
+  <div class="seg" role="group" aria-label="視角"><button id="v3d" class="on">立體（可旋轉）</button><button id="v2d">平面</button></div>
   <a href="index.html">燒錄站</a>
 </header>
 <main>
-  <section class="stage">
+  <section class="stage" id="stage">
     <div class="tools"><button class="chip" id="all">顯示完整接線</button></div>
+    <div class="v3" id="v3" aria-label="立體接線圖：拖曳旋轉、滾輪縮放、右鍵拖曳平移"></div>
+    <div class="cam"><button class="chip" data-cam="angle">斜視</button><button class="chip" data-cam="top">俯視</button><button class="chip" data-cam="front">正面</button><button class="chip" data-cam="left">左側</button>
+      <span class="hint">拖曳旋轉・滾輪 / 雙指縮放・右鍵拖曳平移</span></div>
     <div class="wrap3d" id="w3"><svg id="board" viewBox="0 0 1400 700" role="img" aria-label="ESP32 與麵包板接線圖"></svg></div>
   </section>
   <aside class="side">
@@ -96,6 +103,8 @@ button:focus-visible,select:focus-visible{outline:3px solid #6ea0ff;outline-offs
   </aside>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
 <script>
 {
 const $=id=>document.getElementById(id);
@@ -418,6 +427,258 @@ function probe(g,it){
   });
 }
 
+// ================= 立體（three.js，可旋轉） =================
+const T3={ready:false,visible:false,pulse:[],objs:[]};
+const ESPTOP=-4;                 // ESP32 排針頂端高度（麵包板表面 = 0）
+const TABLE=-26;
+function canvasTex(w,h,draw,K){
+  K=K||3;const c=document.createElement('canvas');c.width=Math.round(w*K);c.height=Math.round(h*K);
+  const g=c.getContext('2d');g.scale(K,K);draw(g);
+  const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.anisotropy=8;return t;
+}
+function mat(color,o){return new THREE.MeshStandardMaterial(Object.assign({color,roughness:.55,metalness:0},o||{}))}
+function add(m,list){m.castShadow=true;m.receiveShadow=true;(list||T3.group).add(m);return m}
+function box(w,h,d,x,y,z,material,list){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);m.position.set(x,y,z);return add(m,list)}
+function cyl(r,h,x,y,z,material,list,seg){const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,seg||20),material);m.position.set(x,y,z);return add(m,list)}
+function tube(points,radius,material,list,closedEnds){
+  const curve=new THREE.CatmullRomCurve3(points.map(p=>new THREE.Vector3(...p)),false,'centripetal');
+  const m=new THREE.Mesh(new THREE.TubeGeometry(curve,Math.max(24,points.length*14),radius,10,false),material);
+  return add(m,list);
+}
+function polyTube(points,radius,material,list){
+  const path=new THREE.CurvePath();
+  for(let i=1;i<points.length;i++)path.add(new THREE.LineCurve3(new THREE.Vector3(...points[i-1]),new THREE.Vector3(...points[i])));
+  return add(new THREE.Mesh(new THREE.TubeGeometry(path,points.length*8,radius,8,false),material),list);
+}
+const goldM=()=>mat(0xd4af37,{metalness:.8,roughness:.3});
+
+function init3D(){
+  if(T3.ready)return true;
+  if(!window.THREE||!THREE.OrbitControls)return false;
+  let r;try{r=new THREE.WebGLRenderer({antialias:true,alpha:true})}catch(e){return false}
+  r.setPixelRatio(Math.min(devicePixelRatio||1,2));
+  r.shadowMap.enabled=true;r.shadowMap.type=THREE.PCFSoftShadowMap;r.outputEncoding=THREE.sRGBEncoding;
+  $('v3').appendChild(r.domElement);
+  const sc=new THREE.Scene();
+  const cam=new THREE.PerspectiveCamera(38,1,1,8000);
+  const ctl=new THREE.OrbitControls(cam,r.domElement);
+  ctl.enableDamping=true;ctl.dampingFactor=.08;ctl.maxPolarAngle=Math.PI*.495;ctl.minDistance=150;ctl.maxDistance=3200;ctl.screenSpacePanning=true;
+  sc.add(new THREE.HemisphereLight(0xffffff,0x9aa8b6,.75));
+  const dl=new THREE.DirectionalLight(0xffffff,.85);dl.position.set(200,1100,900);dl.castShadow=true;
+  dl.shadow.mapSize.set(2048,2048);Object.assign(dl.shadow.camera,{left:-900,right:900,top:700,bottom:-700,near:50,far:3000});dl.shadow.bias=-0.0008;
+  dl.target.position.set(720,0,380);sc.add(dl,dl.target);
+  const tb=new THREE.Mesh(new THREE.PlaneGeometry(5000,4000),new THREE.ShadowMaterial({opacity:.16}));
+  tb.rotation.x=-Math.PI/2;tb.position.set(720,TABLE,380);tb.receiveShadow=true;sc.add(tb);
+  T3.group=new THREE.Group();sc.add(T3.group);
+  Object.assign(T3,{r,sc,cam,ctl,ready:true});
+  new ResizeObserver(()=>{const w=$('v3').clientWidth,h=$('v3').clientHeight;if(!w||!h)return;r.setSize(w,h);cam.aspect=w/h;cam.updateProjectionMatrix();if(!T3.fitted&&T3.group.children.length){T3.fitted=true;camPreset('angle')}}).observe($('v3'));
+  const loop=t=>{requestAnimationFrame(loop);if(!T3.visible)return;
+    const k=.35+.35*Math.sin(t/260);T3.pulse.forEach(m=>{m.emissiveIntensity=k});
+    ctl.update();r.render(sc,cam)};
+  requestAnimationFrame(loop);
+  return true;
+}
+const CAMDIR={angle:[-.08,.78,.62],top:[0,1,.002],front:[0,.32,1],left:[-1,.55,.3]};
+function camPreset(k){
+  if(!T3.ready)return;
+  const G=espGeom(),hasL=MODES[modeKey].items.some(it=>it.t==='l9110'),xmax=hasL?LX+260:BX+40+(COLS-1)*P+60;
+  const zmin=Math.min(EY,BY)-70,zmax=Math.max(G.y0+G.H+60,BY+460,hasL?BTY+110:0);
+  const bx=new THREE.Box3(new THREE.Vector3(EX-40,TABLE,zmin),new THREE.Vector3(xmax,60,zmax));
+  const c=bx.getCenter(new THREE.Vector3()),s=bx.getSize(new THREE.Vector3());
+  const vf=T3.cam.fov*Math.PI/180,hf=2*Math.atan(Math.tan(vf/2)*T3.cam.aspect);
+  const R=Math.hypot(s.x,s.z)/2;
+  const dist=R/Math.sin(Math.min(hf,vf)/2)*.72;
+  const d=new THREE.Vector3(...(CAMDIR[k]||CAMDIR.angle)).normalize();
+  T3.cam.position.copy(c).addScaledVector(d,dist);T3.ctl.target.copy(c);T3.cam.near=dist/50;T3.cam.far=dist*8;T3.cam.updateProjectionMatrix();T3.ctl.update();
+}
+function clear3D(){
+  T3.group.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material){[].concat(o.material).forEach(m=>{if(m.map)m.map.dispose();m.dispose()})}});
+  T3.group.clear();T3.pulse=[];
+}
+
+// --- 底層：麵包板、ESP32 ---
+function bbTexture(W,H){
+  return canvasTex(W,H,g=>{
+    g.fillStyle='#f5f1e8';g.fillRect(0,0,W,H);
+    g.fillStyle='#e7e0d1';g.fillRect(8,82+5*P-9,W-16,18);
+    const X=x=>x-BX,Y=y=>y-BY;
+    [['T+','#e23b2e',-1],['T-','#2f6fec',1],['+','#e23b2e',-1],['-','#2f6fec',1]].forEach(([r,col,d])=>{
+      g.strokeStyle=col;g.lineWidth=2;g.beginPath();g.moveTo(24,Y(ry(r))+d*11);g.lineTo(W-24,Y(ry(r))+d*11);g.stroke();
+      g.fillStyle=col;g.font='900 15px sans-serif';g.textAlign='center';g.fillText(r.replace('T',''),12,Y(ry(r))+5);
+    });
+    g.fillStyle='#3a3a3a';
+    for(let c=1;c<=COLS;c++){
+      for(const r of ['T+','T-','+','-'])if(c%6!==0)g.fillRect(X(cx(c))-3.5,Y(ry(r))-3.5,7,7);
+      for(const r in ROWS)g.fillRect(X(cx(c))-3.5,Y(ry(r))-3.5,7,7);
+    }
+    g.fillStyle='#8a8270';g.font='700 10px monospace';g.textAlign='center';
+    for(let c=1;c<=COLS;c++)if(c===1||c%5===0){g.fillText(c,X(cx(c)),Y(ry('j'))-12);g.fillText(c,X(cx(c)),Y(ry('a'))+20)}
+    g.font='700 11px monospace';for(const r in ROWS){g.fillText(r,22,Y(ry(r))+4);g.fillText(r,W-22,Y(ry(r))+4)}
+  },3);
+}
+function build3DBase(used){
+  const W=40+(COLS-1)*P+40,H=440;
+  const side=mat(0xe9e3d6),top=new THREE.MeshStandardMaterial({map:bbTexture(W,H),roughness:.8});
+  box(W,26,H,BX+W/2,-13,BY+H/2,[side,side,top,side,side,side]);
+  // ESP32
+  const G=espGeom();
+  const tex=canvasTex(G.W,G.H,g=>{
+    g.fillStyle='#1b1d20';g.fillRect(0,0,G.W,G.H);
+    g.fillStyle='#2a2d31';g.fillRect(38,6,G.W-76,30);
+    g.strokeStyle='#d9b44a';g.lineWidth=2.5;g.beginPath();g.moveTo(48,28);for(let i=0;i<6;i++){g.lineTo(60+i*12,28-(i%2?0:14));g.lineTo(60+i*12,28-(i%2?14:0))}g.stroke();
+    g.fillStyle='#fff';g.font='900 18px sans-serif';g.textAlign='center';g.fillText('ESP32',G.W/2,G.H-62);
+    g.fillStyle='#aab';g.font='10px monospace';g.fillText(board==='30'?'DevKit 30P':'DevKitC 38P',G.W/2,G.H-44);
+    [['L',18,1],['R',G.W-18,-1]].forEach(([s,x,d])=>{G.B[s].forEach((p,i)=>{const y=92+i*P,on=used.has(p[1]+'@'+s)&&(p[1]!=='GND'||G.B[s].findIndex(q=>q[1]==='GND')===i);
+      g.fillStyle=on?'#ffb347':'#e8e8e8';g.font=(on?'900 ':'500 ')+'11px monospace';g.textAlign=d>0?'left':'right';g.fillText(p[0],x+d*12,y+4)})});
+  },4);
+  const pcb=mat(0x1b1d20);
+  box(G.W,4,G.H,G.x0+G.W/2,ESPTOP-10,G.y0+G.H/2,[pcb,pcb,new THREE.MeshStandardMaterial({map:tex,roughness:.7}),pcb,pcb,pcb]);
+  // 支腳
+  [[8,8],[G.W-8,8],[8,G.H-8],[G.W-8,G.H-8]].forEach(([dx,dz])=>cyl(3,ESPTOP-12-TABLE,G.x0+dx,(ESPTOP-12+TABLE)/2,G.y0+dz,mat(0x333333)));
+  // 模組（金屬罩）
+  box(60,6,120,G.x0+G.W/2,ESPTOP-5,G.y0+100,mat(0xc9ccd0,{metalness:.6,roughness:.35}));
+  box(44,6,24,G.x0+G.W/2,ESPTOP-6,G.y0+G.H-4,mat(0xb8bec5,{metalness:.7,roughness:.3}));
+  // 排針
+  const gold=goldM(),blk=mat(0x111111);
+  [['L',G.lx],['R',G.rx]].forEach(([s,x])=>{
+    box(10,5,G.B[s].length*P,x,ESPTOP-9,G.y0+92+(G.B[s].length-1)*P/2,blk);
+    G.B[s].forEach((p,i)=>box(2.6,9,2.6,x,ESPTOP-4.5,G.py(i),gold));
+  });
+  cyl(3.5,2,G.x0+G.W/2+36,ESPTOP-7,G.y0+G.H-22,mat(0x3d8bff,{emissive:0x3d8bff,emissiveIntensity:.6}));
+}
+
+// --- 杜邦線 ---
+function dupont(x,y,z,list){box(5,12,5,x,y+6,z,mat(0x16181b),list)}
+function wireMat(color,state){
+  const m=mat(new THREE.Color(wireColor(color)).getHex(),{roughness:.45});
+  if(state==='cur'){m.emissive=new THREE.Color(wireColor(color));T3.pulse.push(m)}
+  if(state==='past'){m.transparent=true;m.opacity=.4}
+  return m;
+}
+function stateMaterials(list,state){
+  list.traverse(o=>{if(!o.material)return;[].concat(o.material).forEach(m=>{
+    if(state==='past'){m.transparent=true;m.opacity=Math.min(m.opacity,.4)}
+    if(state==='cur'&&!m.map&&!T3.pulse.includes(m)&&m.emissive&&m.color){m.emissive=m.color.clone();m.emissiveIntensity=.2;T3.pulse.push(m)}
+  })});
+}
+function wire3D(pts,color,state,list){
+  const m=wireMat(color,state);tube(pts,2.3,m,list);
+  const a=pts[0],b=pts[pts.length-1];
+  dupont(a[0],a[1],a[2],list);dupont(b[0],b[1],b[2],list);
+}
+function espWire3D(it,lane,state,list){
+  let tx,ty,tyH;
+  if(typeof it.to==='string'){[tx,ty]=lpin(it.to.slice(2));tyH=-4}else{[tx,ty]=hole(...it.to);tyH=0}
+  const route=espRoute(it.pin,tx,ty,lane,typeof it.to==='string');
+  const h=34+lane*5,p=route[0],q=route[route.length-1];
+  const pts=[[p[0],ESPTOP,p[1]],[p[0],ESPTOP+20,p[1]]];
+  route.slice(1,-1).forEach(([x,y])=>pts.push([x,h,y]));
+  pts.push([q[0],tyH+22,q[1]],[q[0],tyH,q[1]]);
+  wire3D(pts,it.color,state,list);
+  if(state==='cur'){const pp=pinPos(it.pin);const ring=new THREE.Mesh(new THREE.TorusGeometry(8,1.6,8,24),mat(0xff9d00,{emissive:0xff9d00,emissiveIntensity:.8}));ring.rotation.x=Math.PI/2;ring.position.set(pp.x,ESPTOP+1,pp.y);add(ring,list)}
+}
+function jump3D(from,to,color,state,list,fromH,toH){
+  const [x1,z1]=from,[x2,z2]=to;fromH=fromH||0;toH=toH||0;
+  const d=Math.hypot(x2-x1,z2-z1),h=Math.max(fromH,toH)+16+d*.12;
+  wire3D([[x1,fromH,z1],[x1,fromH+16,z1],[(x1+x2)/2,h,(z1+z2)/2],[x2,toH+16,z2],[x2,toH,z2]],color,state,list);
+}
+
+// --- 元件 ---
+function resistor3D(it,list){
+  const [x1,z1]=hole(...it.a),[x2,z2]=hole(...it.b),leg=mat(0xb0b5ba,{metalness:.7,roughness:.3});
+  polyTube([[x1,0,z1],[x1,8,z1],[x2,8,z2],[x2,0,z2]],.9,leg,list);
+  const len=26,body=new THREE.Group();
+  const b=new THREE.Mesh(new THREE.CylinderGeometry(4.6,4.6,len,20),mat(0xe8cf9c));b.castShadow=true;body.add(b);
+  it.bands.concat(['#c9a227']).forEach((c,i)=>{const r=new THREE.Mesh(new THREE.CylinderGeometry(4.9,4.9,2.4,20),mat(new THREE.Color(c).getHex()));r.position.y=-8+i*4.5+(i===3?3:0);body.add(r)});
+  body.position.set((x1+x2)/2,8,(z1+z2)/2);body.rotation.z=Math.PI/2;body.rotation.y=-Math.atan2(z2-z1,x2-x1);list.add(body);
+}
+function led3D(it,list){
+  const [xa,za]=hole(...it.a),[xk,zk]=hole(...it.k),leg=mat(0xb0b5ba,{metalness:.7,roughness:.3});
+  cyl(.9,22,xa,11,za,leg,list,8);cyl(.9,18,xk,9,zk,leg,list,8);
+  const col=new THREE.Color(it.col).getHex(),m=mat(col,{transparent:true,opacity:.85,emissive:col,emissiveIntensity:.35,roughness:.2});
+  const mx=(xa+xk)/2,mz=(za+zk)/2;
+  cyl(8.5,2,mx,22,mz,m,list);cyl(7,9,mx,27,mz,m,list);
+  const d=new THREE.Mesh(new THREE.SphereGeometry(7,20,12,0,Math.PI*2,0,Math.PI/2),m);d.position.set(mx,31.5,mz);add(d,list);
+}
+function module3D(it,list){
+  const xs=it.cols.map(c=>cx(c)),y=ry('j'),x0=Math.min(...xs)-16,x1=Math.max(...xs)+16,h=it.h,W=x1-x0;
+  const tex=canvasTex(W,h,g=>{
+    g.fillStyle=it.color;g.fillRect(0,0,W,h);
+    g.fillStyle='#fff';g.font='900 12px sans-serif';g.textAlign='center';g.fillText(it.name,W/2,18);
+    g.font='700 9px monospace';
+    it.cols.forEach((c,i)=>{const x=cx(c)-x0;g.save();g.translate(x+3,h-12);g.rotate(-Math.PI/2);g.textAlign='left';g.fillText(it.pins[i],0,0);g.restore();
+      g.fillStyle='#d4af37';g.beginPath();g.arc(x,h-4,2.6,0,7);g.fill();g.fillStyle='#fff'});
+  },4);
+  const pcb=new THREE.Color(it.color).getHex(),side=mat(pcb),PT=18;
+  box(W,2.4,h,x0+W/2,PT,y-8-h/2+4,[side,side,new THREE.MeshStandardMaterial({map:tex,roughness:.6}),side,side,side],list);
+  const gold=goldM();
+  box(W-8,5,4,x0+W/2,2.5,y,mat(0x111111),list);
+  it.cols.forEach(c=>{box(2.4,PT+2,2.4,cx(c),PT/2-1,y,gold,list);box(2.4,2.4,12,cx(c),PT,y-6,gold,list)});
+  const cxm=(x0+x1)/2,zt=y-8-h+4;
+  if(it.slot){box(12,26,10,cxm-10,PT+14,zt+10,mat(0x111111),list);box(12,26,10,cxm+10,PT+14,zt+10,mat(0x111111),list)}
+  if(it.term){box(40,12,14,cxm,PT+7,zt+10,mat(0x2fae5a),list)}
+  if(it.name==='HALL'){box(10,4,8,cxm,PT+3,zt+6,mat(0x111111),list);[-3,0,3].forEach(d=>box(1,1,14,cxm+d,PT+2,zt+14,goldM(),list))}
+}
+function probe3D(it,list){
+  const bx=cx(16),bz=BY-40,steel=mat(0xc8ced4,{metalness:.8,roughness:.25});
+  const c=new THREE.Mesh(new THREE.CylinderGeometry(6,6,70,24),steel);c.rotation.z=Math.PI/2;c.position.set(bx-45,TABLE+6,bz);add(c,list);
+  tube([[bx-10,TABLE+6,bz],[bx+30,TABLE+8,bz],[bx+20,10,bz+22],[bx,20,BY+12]],4.5,mat(0x222222),list);
+  it.pins.forEach(([c2,r,col],i)=>{const [x,z]=hole(c2,r);
+    tube([[bx-3+i*3,20,BY+12],[x,26,(BY+12+z)/2],[x,14,z],[x,0,z]],1.6,mat(new THREE.Color(C[col]).getHex()),list)});
+}
+function l9110_3D(list){
+  const W=150,H=170,top=-8;
+  const tex=canvasTex(W,H,g=>{g.fillStyle='#1d4fa3';g.fillRect(0,0,W,H);g.fillStyle='#fff';g.font='900 14px sans-serif';g.textAlign='center';g.fillText('L9110S',80,20);
+    g.font='700 10px monospace';g.textAlign='left';LPINS.forEach((n,i)=>g.fillText(n,22,34+i*P));
+    g.textAlign='right';g.fillText('MOTOR B',144,44);g.fillText('MOTOR A',144,154);
+    g.fillStyle='#111';g.fillRect(70,120,16,24);g.fillRect(100,120,16,24)},4);
+  const s=mat(0x1d4fa3);
+  box(W,2.4,H,LX+W/2,top-10,LY+H/2,[s,s,new THREE.MeshStandardMaterial({map:tex,roughness:.6}),s,s,s],list);
+  [[6,6],[W-6,6],[6,H-6],[W-6,H-6]].forEach(([dx,dz])=>cyl(2.5,top-10-TABLE,LX+dx,(top-10+TABLE)/2,LY+dz,mat(0x333333),list));
+  const gold=goldM();LPINS.forEach(n=>{const [x,z]=lpin(n);box(2.6,10,2.6,x,top-4,z,gold,list)});
+  box(8,6,LPINS.length*P,LX+10,top-6,LY+30+(LPINS.length-1)*P/2,mat(0x111111),list);
+  [LY+40,LY+150].forEach(z=>box(26,14,44,LX+163,top-2,z,mat(0x2fae5a),list));
+  const mx=LX+215,mz=LY+255;
+  const mo=new THREE.Mesh(new THREE.CylinderGeometry(24,24,50,28),mat(0xb9c0c7,{metalness:.7,roughness:.3}));mo.position.set(mx,TABLE+24,mz);add(mo,list);
+  cyl(1.5,14,mx,TABLE+56,mz,mat(0x999999,{metalness:.8}),list);
+  cyl(32,3,mx,TABLE+62,mz,mat(0xf3d34a),list);cyl(5,4,mx+20,TABLE+64,mz-10,mat(0x9a2b2b),list);
+  tube([[LX+170,top,LY+140],[LX+200,top+20,LY+170],[mx-14,TABLE+40,mz-26],[mx-8,TABLE+44,mz-20]],1.8,mat(0xe23b2e),list);
+  tube([[LX+170,top,LY+160],[LX+190,top+10,LY+190],[mx-20,TABLE+36,mz-16],[mx-14,TABLE+40,mz-12]],1.8,mat(0x22262b),list);
+}
+function battery3D(state,list){
+  const x=BTX+85,z=BTY+46;
+  box(170,22,92,x,TABLE+11,z,mat(0x2b2f34),list);
+  for(let i=0;i<4;i++){const c=new THREE.Mesh(new THREE.CylinderGeometry(7,7,146,18),mat(i%2?0xcc3333:0x3a6fd8));c.rotation.z=Math.PI/2;c.position.set(x,TABLE+24,BTY+17+i*19);add(c,list)}
+  const [vx,vz]=lpin('VCC'),[gx,gz]=lpin('GND');
+  tube([[BTX+4,TABLE+14,BTY+20],[BTX-40,TABLE+30,BTY-30],[vx-30,20,vz+10],[vx,18,vz],[vx,-4,vz]],2.2,wireMat('red',state),list);
+  tube([[BTX+4,TABLE+14,BTY+70],[BTX-70,TABLE+30,BTY+30],[gx-40,24,gz+20],[gx,18,gz],[gx,-4,gz]],2.2,wireMat('black',state),list);
+}
+
+function render3D(M,used){
+  if(!T3.ready)return;
+  clear3D();
+  const key=modeKey+board,refit=T3.key!==key;T3.key=key;
+  build3DBase(used);
+  let lane=0;
+  M.items.forEach(it=>{
+    const state=showAll?'all':(it.s<step?'past':it.s===step?'cur':'future');
+    const ln=it.t==='esp'?lane++:0;
+    if(state==='future')return;
+    const g=new THREE.Group();T3.group.add(g);
+    if(it.t==='esp')espWire3D(it,ln,state,g);
+    else if(it.t==='jmp')jump3D(hole(...it.from),hole(...it.to),it.color,state,g);
+    else if(it.t==='lw'){const [x,z]=lpin(it.from.slice(2));jump3D([x,z],hole(...it.to),it.color,state,g,-4,0)}
+    else if(it.t==='res')resistor3D(it,g);
+    else if(it.t==='led')led3D(it,g);
+    else if(it.t==='mod')module3D(it,g);
+    else if(it.t==='probe')probe3D(it,g);
+    else if(it.t==='l9110')l9110_3D(g);
+    else if(it.t==='bat')battery3D(state,g);
+    if(!['esp','jmp','lw'].includes(it.t))stateMaterials(g,state);
+  });
+  if(refit&&$('v3').clientWidth){T3.fitted=true;const sa=showAll;camPreset('angle')}
+}
+
 // ---------- 狀態 ----------
 let modeKey='dsprobe',step=0,showAll=false;
 try{const m=localStorage.getItem('wire-mode');if(MODES[m])modeKey=m;const b=localStorage.getItem('wire-board');if(BOARDS[b])board=b}catch(e){}
@@ -482,16 +743,26 @@ function render(){
   $('prev').disabled=step===0;
   $('next').textContent=step===N-1?'重新開始 ↺':'下一步 ›';
   $('all').classList.toggle('on',showAll);
+  if(T3.visible)render3D(M,used);
 }
 $('prev').onclick=()=>{if(step>0){step--;render()}};
 $('next').onclick=()=>{const N=MODES[modeKey].steps.length;step=step<N-1?step+1:0;render()};
 $('msel').onchange=e=>{modeKey=e.target.value;step=0;try{localStorage.setItem('wire-mode',modeKey)}catch(_){}render()};
 $('bsel').onchange=e=>{board=e.target.value;try{localStorage.setItem('wire-board',board)}catch(_){}render()};
 $('all').onclick=()=>{showAll=!showAll;render()};
-$('v3d').onclick=()=>{$('w3').classList.add('tilt');$('v3d').classList.add('on');$('v2d').classList.remove('on')};
-$('v2d').onclick=()=>{$('w3').classList.remove('tilt');$('v2d').classList.add('on');$('v3d').classList.remove('on')};
+function setView(v){
+  if(v==='3d'&&!init3D()){v='2d';$('v3d').disabled=true;$('v3d').title='這台裝置無法顯示立體圖'}
+  T3.visible=v==='3d';$('stage').classList.toggle('is3d',T3.visible);
+  $('v3d').classList.toggle('on',T3.visible);$('v2d').classList.toggle('on',!T3.visible);
+  try{localStorage.setItem('wire-view',v)}catch(e){}
+  render();
+}
+$('v3d').onclick=()=>setView('3d');
+$('v2d').onclick=()=>setView('2d');
+document.querySelectorAll('[data-cam]').forEach(b=>b.onclick=()=>camPreset(b.dataset.cam));
 document.addEventListener('keydown',e=>{if(e.target.tagName==='SELECT')return;if(e.key==='ArrowRight')$('next').click();if(e.key==='ArrowLeft'&&!$('prev').disabled)$('prev').click()});
-render();
+let v0='3d';try{v0=localStorage.getItem('wire-view')||'3d'}catch(e){}
+setView(v0);
 }
 </script>
 </body>
