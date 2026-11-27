@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PhyBLE 接線引導</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: 實驗課的工作卡，一步一步、看圖就能接
+   IDEA: 桌上的麵包板照片被改畫成教學圖：每一步只亮起這一步要接的線
+   PICTURE: 左邊 ESP32、右邊麵包板與元件，杜邦線依步驟出現，目前這條會發光
+   COLOUR and TYPE: 淺灰藍桌面、米白麵包板、真實線色（紅=正、黑=地、彩色=訊號），重點色電光藍；Noto Sans TC + JetBrains Mono 標腳位
+   LAYOUT: 上方工具列（選感測器、板子、立體/平面），中間大圖，右側步驟卡；900px 以下圖在上、步驟在下 */
+:root{color-scheme:light dark;--bg:light-dark(#e7edf3,#11161b);--panel:light-dark(#fbfaf7,#181e24);--ink:light-dark(#17202a,#e9eef3);--mute:light-dark(#5a6673,#a1adb9);--line:light-dark(#d9dfe5,#2c353e);--bar:light-dark(#1d2732,#0b0f13);--acc:#2f6fec;--warnbg:light-dark(#fff4cc,#3a3010);--warnink:light-dark(#6b4d00,#ffe08a)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 "Noto Sans TC",system-ui,sans-serif;overflow-x:clip;display:flex;flex-direction:column}
+.top{background:var(--bar);color:#fff;display:flex;align-items:center;gap:12px;padding:10px max(2vw,12px);flex-wrap:wrap}
+.top h1{font-size:19px;margin:0;font-weight:900;white-space:nowrap}
+.top select{height:44px;border-radius:10px;border:1px solid #ffffff40;background:#ffffff12;color:#fff;font:700 16px "Noto Sans TC",sans-serif;padding:0 10px;max-width:100%}
+.top select option{color:#111;background:#fff}
+.top .sp{flex:1}
+.top a{color:#fff;font-weight:700}
+.seg{display:inline-flex;border-radius:10px;overflow:hidden;border:1px solid #ffffff40}
+.seg button{height:42px;padding:0 14px;border:0;background:transparent;color:#fff;font:700 15px "Noto Sans TC",sans-serif;cursor:pointer}
+.seg button.on{background:#fff;color:var(--bar)}
+main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 400px;min-height:0}
+.stage{position:relative;overflow:auto;padding:16px;display:flex;align-items:center;justify-content:center}
+.stage .tools{position:absolute;right:16px;top:12px;display:flex;gap:8px;z-index:2}
+.chip{height:40px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:700 14px "Noto Sans TC",sans-serif;padding:0 12px;cursor:pointer;box-shadow:0 2px 8px #0001}
+.chip.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.wrap3d{width:100%;max-width:1280px;transition:transform .5s ease;transform-origin:50% 60%}
+.wrap3d.tilt{transform:perspective(1400px) rotateX(38deg) rotateZ(-8deg) scale(.92)}
+@media (prefers-reduced-motion:reduce){.wrap3d{transition:none}}
+svg#board{width:100%;height:auto;display:block;filter:drop-shadow(0 18px 24px #0002)}
+.side{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.steps{padding:20px 22px;overflow:auto;flex:1}
+.prog{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.prog b{font-size:15px}.prog b span{font-size:26px;font-weight:900}
+.dots{display:flex;gap:5px;flex:1}
+.dots i{height:6px;flex:1;border-radius:3px;background:var(--line)}
+.dots i.d{background:var(--ink)}.dots i.c{background:var(--acc)}
+.steps h2{font-size:22px;line-height:1.3;margin:6px 0 8px;font-weight:900;text-wrap:balance}
+.steps p{margin:0 0 12px;color:var(--mute)}
+.conn{list-style:none;padding:0;margin:0 0 12px}
+.conn li{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:15px}
+.sw{width:22px;height:8px;border-radius:4px;flex:none;box-shadow:inset 0 0 0 1px #0003}
+.conn code{font:700 14px "JetBrains Mono",monospace;white-space:nowrap}
+.warn{background:var(--warnbg);color:var(--warnink);border-radius:12px;padding:12px 14px;font-weight:700;font-size:15px;margin:0 0 12px}
+.card{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:0 0 12px}
+.card b{display:block;margin-bottom:4px}
+.card ul{margin:0;padding-left:20px;color:var(--mute);font-size:15px}
+.mode{display:inline-block;background:var(--acc);color:#fff;border-radius:8px;padding:2px 10px;font-weight:700;font-size:14px}
+.nav{display:grid;grid-template-columns:1fr 1.4fr;gap:10px;padding:14px 22px;border-top:1px solid var(--line)}
+.nav button{height:54px;border-radius:12px;font:900 18px "Noto Sans TC",sans-serif;cursor:pointer}
+#prev{background:var(--panel);color:var(--ink);border:1px solid var(--line)}
+#next{background:var(--bar);color:#fff;border:0}
+:root[data-theme=dark] #next{background:var(--acc)}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]) #next{background:var(--acc)}}
+button:disabled{opacity:.4;cursor:not-allowed}
+button:focus-visible,select:focus-visible{outline:3px solid #6ea0ff;outline-offset:2px}
+/* svg styles */
+.w{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.it{transition:opacity .25s}
+.it.past{opacity:.55}.it.future{opacity:0;pointer-events:none}
+.it.cur .w{animation:glow 1.2s ease-in-out infinite alternate}
+@keyframes glow{from{filter:drop-shadow(0 0 0 #2f6fec00)}to{filter:drop-shadow(0 0 6px #2f6fec)}}
+@media (prefers-reduced-motion:reduce){.it.cur .w{animation:none}}
+.lbl{font:700 11px "JetBrains Mono",monospace}
+.pinhi{fill:none;stroke:#ff9d00;stroke-width:3}
+@media(max-width:900px){main{grid-template-columns:minmax(0,1fr)}.side{border-left:0;border-top:1px solid var(--line)}.stage{padding:52px 8px 8px}}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>接線引導</h1>
+  <select id="msel" aria-label="選擇感測器"></select>
+  <select id="bsel" aria-label="ESP32 板子">
+    <option value="30">ESP32 DevKit 30 腳</option>
+    <option value="38">ESP32 DevKitC 38 腳</option>
+  </select>
+  <div class="sp"></div>
+  <div class="seg" role="group" aria-label="視角"><button id="v3d">立體</button><button id="v2d" class="on">平面</button></div>
+  <a href="index.html">燒錄站</a>
+</header>
+<main>
+  <section class="stage">
+    <div class="tools"><button class="chip" id="all">顯示完整接線</button></div>
+    <div class="wrap3d" id="w3"><svg id="board" viewBox="0 0 1400 700" role="img" aria-label="ESP32 與麵包板接線圖"></svg></div>
+  </section>
+  <aside class="side">
+    <div class="steps" id="steps"></div>
+    <div class="nav"><button id="prev">‹ 上一步</button><button id="next">下一步 ›</button></div>
+  </aside>
+</main>
+
+<script>
+{
+const $=id=>document.getElementById(id);
+const S=$('board');
+const P=22;                       // 麵包板孔距
+const BX=330,BY=74;               // 麵包板左上
+const EX=60,EY=74;                // ESP32 左上
+const COLS=30;
+const ROWS={j:0,i:1,h:2,g:3,f:4,e:6,d:7,c:8,b:9,a:10};
+const cx=c=>BX+40+(c-1)*P;
+const ry=r=>r==='+'?BY+392:r==='-'?BY+414:r==='T+'?BY+22:r==='T-'?BY+44:BY+82+ROWS[r]*P;
+const hole=(c,r)=>[cx(c),ry(r)];
+const hname=(c,r)=>r==='+'?`下方 + 軌（第 ${c} 孔附近）`:r==='-'?`下方 − 軌（第 ${c} 孔附近）`:`${c}${r}`;
+const C={red:'#e23b2e',black:'#22262b',yellow:'#f2c230',green:'#1f9d55',blue:'#2f6fec',orange:'#f28a1d',purple:'#8a4fd8',white:'#f4f4f4',brown:'#8a5a2b',gray:'#9aa3ab'};
+const CN={red:'紅',black:'黑',yellow:'黃',green:'綠',blue:'藍',orange:'橙',purple:'紫',white:'白',brown:'棕',gray:'灰'};
+
+// ---------- ESP32 腳位（俯視、天線朝上、USB 朝下） ----------
+const BOARDS={
+ '30':{name:'ESP32 DevKit V1（30 腳）',
+  L:[['EN','EN'],['VP','36'],['VN','39'],['D34','34'],['D35','35'],['D32','32'],['D33','33'],['D25','25'],['D26','26'],['D27','27'],['D14','14'],['D12','12'],['D13','13'],['GND','GND'],['VIN','VIN']],
+  R:[['D23','23'],['D22','22'],['TX0','1'],['RX0','3'],['D21','21'],['D19','19'],['D18','18'],['D5','5'],['TX2','17'],['RX2','16'],['D4','4'],['D2','2'],['D15','15'],['GND','GND'],['3V3','3V3']]},
+ '38':{name:'ESP32 DevKitC（38 腳）',
+  L:[['3V3','3V3'],['EN','EN'],['VP','36'],['VN','39'],['34','34'],['35','35'],['32','32'],['33','33'],['25','25'],['26','26'],['27','27'],['14','14'],['12','12'],['GND','GND'],['13','13'],['D2','SD2'],['D3','SD3'],['CMD','CMD'],['5V','5V']],
+  R:[['GND','GND'],['23','23'],['22','22'],['TX','1'],['RX','3'],['21','21'],['GND','GND2'],['19','19'],['18','18'],['5','5'],['17','17'],['16','16'],['4','4'],['0','0'],['2','2'],['15','15'],['D1','SD1'],['D0','SD0'],['CLK','CLK']]}
+};
+let board='30';
+function espGeom(){
+  const B=BOARDS[board],n=B.L.length,W=180,H=n*P+130;
+  return {B,n,W,H,x0:EX,y0:EY,lx:EX+18,rx:EX+W-18,py:i=>EY+92+i*P};
+}
+function pinPos(key){
+  const g=espGeom();
+  let i=g.B.R.findIndex(p=>p[1]===key);
+  if(key==='GND'){ // 靠近 3V3 的那一側
+    const side3=g.B.R.some(p=>p[1]==='3V3')?'R':'L';
+    const arr=g.B[side3];i=arr.findIndex(p=>p[1]==='GND');
+    return {x:side3==='R'?g.rx:g.lx,y:g.py(i),side:side3,label:'GND'};
+  }
+  if(i>=0)return {x:g.rx,y:g.py(i),side:'R',label:g.B.R[i][0]};
+  i=g.B.L.findIndex(p=>p[1]===key);
+  return {x:g.lx,y:g.py(i),side:'L',label:g.B.L[i][0]};
+}
+const pinText=k=>{const p=pinPos(k);return k==='3V3'||k==='GND'?`ESP32「${p.label}」`:`ESP32「${p.label}」(GPIO${k})`};
+
+// ---------- 情境資料 ----------
+// 每個項目：s = 第幾步出現
+const POWER=[
+ {s:1,t:'esp',pin:'3V3',to:[2,'+'],color:'red'},
+ {s:1,t:'esp',pin:'GND',to:[3,'-'],color:'black'}];
+const MODES={
+ led:{name:'LED 燈號測試（外接 LED）',phy:null,
+  parts:['ESP32 開發板 ×1','麵包板 ×1','LED ×1（任意顏色）','220 Ω 電阻 ×1（紅紅棕）','公對公杜邦線 ×3'],
+  items:[...POWER.filter(x=>x.pin==='GND'),
+   {s:2,t:'res',a:[8,'g'],b:[12,'g'],val:'220Ω',bands:['#c0392b','#c0392b','#7b4a1e']},
+   {s:3,t:'led',a:[12,'i'],k:[13,'i'],col:'#ff3b30'},
+   {s:4,t:'esp',pin:'2',to:[8,'f'],color:'orange'},
+   {s:5,t:'jmp',from:[13,'f'],to:[13,'-'],color:'black'}],
+  steps:[
+   {h:'準備材料',p:'這個練習不用感測器：外接一顆 LED，看它是否跟板子上的藍燈一起閃，確認燒錄和組別都正常。'},
+   {h:'GND 接到麵包板 − 軌',p:'只需要接地線（LED 用 GPIO2 供電）。'},
+   {h:'放 220 Ω 電阻',p:'電阻兩腳插 8g 和 12g，方向不拘。',warn:'一定要有電阻，否則 LED 和 ESP32 都可能燒壞。'},
+   {h:'放 LED',p:'長腳（+，陽極）插 12i，短腳（−，陰極）插 13i。12 號直排和電阻相連。',warn:'LED 有方向：長腳接電阻那側，短腳接地。'},
+   {h:'GPIO2 接到電阻',p:'這條線把 ESP32 的訊號送到電阻。'},
+   {h:'LED 短腳接地',p:'從 13f 接一條黑線到下方 − 軌。'},
+   {h:'完成！',p:'插上 USB，LED 應會先閃出組別號碼（長閃 = 十位、短閃 = 個位），之後每秒閃一下；phyphox 連上後恆亮。'}]},
+ dsprobe:{name:'溫度：DS18B20 防水探頭（三條線）',phy:'1 溫度',
+  parts:['ESP32 開發板 ×1','麵包板 ×1','DS18B20 防水探頭 ×1','4.7 kΩ 電阻 ×1（黃紫紅）','公對公杜邦線 ×5'],
+  items:[...POWER,
+   {s:2,t:'probe',pins:[[15,'h','yellow','DQ'],[16,'h','red','VCC'],[17,'h','black','GND']]},
+   {s:3,t:'res',a:[15,'g'],b:[16,'g'],val:'4.7kΩ',bands:['#e6c31a','#7a3fb0','#c0392b']},
+   {s:4,t:'jmp',from:[16,'f'],to:[16,'+'],color:'red'},
+   {s:4,t:'jmp',from:[17,'f'],to:[17,'-'],color:'black'},
+   {s:5,t:'esp',pin:'4',to:[15,'f'],color:'yellow'}],
+  steps:[
+   {h:'準備材料',p:'探頭的三條線：紅 = VCC、黑 = GND、黃 = DQ（資料）。少數產品顏色不同，請看包裝說明。'},
+   {h:'電源軌：3.3V 與 GND',p:'把 ESP32 的 3.3V 接到下方 + 軌（紅線），GND 接到 − 軌（黑線）。之後所有元件都從這兩條軌取電。',warn:'接 3.3V，不要接 VIN / 5V。'},
+   {h:'插入探頭三條線',p:'黃線插 15h、紅線插 16h、黑線插 17h。',warn:'探頭是多股細線，不好插的話先擰緊或接杜邦端子。'},
+   {h:'加 4.7 kΩ 上拉電阻',p:'電阻插 15g 和 16g，把 DQ 和 VCC 連起來。沒有這顆電阻會讀不到溫度。'},
+   {h:'探頭接電源',p:'16f（紅線那排）接到 + 軌；17f（黑線那排）接到 − 軌。'},
+   {h:'資料線接到 GPIO4',p:'15f（黃線那排）接到 ESP32 的 GPIO4。'},
+   {h:'完成！',p:'在 phyphox 的「換感測器」選「1 溫度」。可以並聯第二支探頭（三條線插在同樣三排），會顯示溫度 2。'}]},
+ dsmod:{name:'溫度：DS18B20 模組板',phy:'1 溫度',
+  parts:['ESP32 開發板 ×1','麵包板 ×1','DS18B20 模組板（含探頭）×1','公對公杜邦線 ×5'],
+  items:[...POWER,
+   {s:2,t:'mod',cols:[15,16,17],name:'DS18B20',pins:['DQ','VCC','GND'],color:'#1f2a36',h:78,term:true},
+   {s:3,t:'jmp',from:[16,'g'],to:[16,'+'],color:'red'},
+   {s:3,t:'jmp',from:[17,'g'],to:[17,'-'],color:'black'},
+   {s:4,t:'esp',pin:'4',to:[15,'g'],color:'yellow'}],
+  steps:[
+   {h:'準備材料',p:'模組板上已有 4.7 kΩ 上拉電阻，不用另外加。'},
+   {h:'電源軌：3.3V 與 GND',p:'ESP32 的 3.3V 接 + 軌（紅），GND 接 − 軌（黑）。',warn:'接 3.3V，不要接 VIN / 5V。'},
+   {h:'插入模組板',p:'三支腳插 15j、16j、17j，板子朝圖的上方。',warn:'圖上的腳位順序是 DQ / VCC / GND；請以你手上板子的絲印為準，順序不同就跟著換線。'},
+   {h:'模組接電源',p:'VCC 那排（16g）接 + 軌，GND 那排（17g）接 − 軌。'},
+   {h:'DQ 接到 GPIO4',p:'DQ 那排（15g）接到 ESP32 的 GPIO4。'},
+   {h:'完成！',p:'在 phyphox 的「換感測器」選「1 溫度」。'}]},
+ gate:{name:'光閘：XD-51 槽型光耦',phy:'2 光閘計時',
+  parts:['ESP32 開發板 ×1','麵包板 ×1','XD-51 測速（槽型光耦）模組 ×1','公對公杜邦線 ×5','擋光片（紙卡、尺）'],
+  items:[...POWER,
+   {s:2,t:'mod',cols:[18,19,20,21],name:'XD-51',pins:['VCC','GND','DO','AO'],color:'#1d4fa3',h:70,slot:true},
+   {s:3,t:'jmp',from:[18,'g'],to:[18,'+'],color:'red'},
+   {s:3,t:'jmp',from:[19,'g'],to:[19,'-'],color:'black'},
+   {s:4,t:'esp',pin:'27',to:[20,'g'],color:'green'}],
+  steps:[
+   {h:'準備材料',p:'槽型光耦的 U 形槽一邊發紅外光、一邊接收；東西穿過槽時就會「遮光」。'},
+   {h:'電源軌：3.3V 與 GND',p:'ESP32 的 3.3V 接 + 軌（紅），GND 接 − 軌（黑）。',warn:'用 3.3V 供電，輸出才不會超過 ESP32 能承受的電壓。'},
+   {h:'插入 XD-51 模組',p:'四支腳插 18j～21j，U 形槽朝圖的上方。',warn:'圖上的腳位順序是 VCC / GND / DO / AO；請以板子絲印為準。AO 不用接。'},
+   {h:'模組接電源',p:'VCC 那排（18g）接 + 軌，GND 那排（19g）接 − 軌。'},
+   {h:'DO 接到 GPIO27',p:'DO 那排（20g）接到 ESP32 的 GPIO27。'},
+   {h:'完成！',p:'在 phyphox 選「2 光閘計時」。開機時槽內不要有東西。速度 = 擋光片寬度 ÷ 遮光時間；單擺週期看「間隔」。'}]},
+ hall:{name:'轉速：霍爾感測器模組',phy:'3 轉速',
+  parts:['ESP32 開發板 ×1','麵包板 ×1','霍爾感測器模組 ×1','小磁鐵 ×1（貼在轉盤上）','公對公杜邦線 ×5'],
+  items:[...POWER,
+   {s:2,t:'mod',cols:[18,19,20],name:'HALL',pins:['VCC','GND','DO'],color:'#1d4fa3',h:66},
+   {s:3,t:'jmp',from:[18,'g'],to:[18,'+'],color:'red'},
+   {s:3,t:'jmp',from:[19,'g'],to:[19,'-'],color:'black'},
+   {s:4,t:'esp',pin:'26',to:[20,'g'],color:'blue'}],
+  steps:[
+   {h:'準備材料',p:'磁鐵經過霍爾感測器時，DO 腳會改變電位；每轉一圈經過一次，就能算出轉速。'},
+   {h:'電源軌：3.3V 與 GND',p:'ESP32 的 3.3V 接 + 軌（紅），GND 接 − 軌（黑）。'},
+   {h:'插入霍爾模組',p:'三支腳插 18j～20j，感測頭朝圖的上方。',warn:'圖上的腳位順序是 VCC / GND / DO；請以板子絲印為準。有 AO 腳的不用接。'},
+   {h:'模組接電源',p:'VCC 那排（18g）接 + 軌，GND 那排（19g）接 − 軌。'},
+   {h:'DO 接到 GPIO26',p:'DO 那排（20g）接到 ESP32 的 GPIO26。'},
+   {h:'完成！',p:'在 phyphox 選「3 轉速」，並用滑桿設定轉盤上的磁鐵數。開機時磁鐵不要停在感測器前。'}]},
+ ina:{name:'電壓電流：INA219（量 LED 電路）',phy:'4 電壓電流',
+  parts:['ESP32 開發板 ×1','麵包板 ×1','INA219 模組 ×1','220 Ω 電阻 ×1（紅紅棕）','LED ×1','公對公杜邦線 ×8'],
+  items:[...POWER,
+   {s:2,t:'mod',cols:[8,9,10,11,12,13],name:'INA219',pins:['VCC','GND','SCL','SDA','VIN−','VIN+'],color:'#1d4fa3',h:84,term:true},
+   {s:3,t:'jmp',from:[8,'g'],to:[8,'+'],color:'red'},
+   {s:3,t:'jmp',from:[9,'g'],to:[9,'-'],color:'black'},
+   {s:4,t:'esp',pin:'22',to:[10,'g'],color:'yellow'},
+   {s:4,t:'esp',pin:'21',to:[11,'g'],color:'green'},
+   {s:5,t:'jmp',from:[13,'f'],to:[13,'+'],color:'red'},
+   {s:6,t:'res',a:[12,'i'],b:[17,'i'],val:'220Ω',bands:['#c0392b','#c0392b','#7b4a1e']},
+   {s:6,t:'led',a:[17,'g'],k:[18,'g'],col:'#ffcc00'},
+   {s:7,t:'jmp',from:[18,'f'],to:[18,'-'],color:'black'}],
+  steps:[
+   {h:'準備材料',p:'INA219 串在電路中，量流過的電流與電壓。這裡用 ESP32 的 3.3V 點亮一顆 LED 當待測電路。'},
+   {h:'電源軌：3.3V 與 GND',p:'ESP32 的 3.3V 接 + 軌（紅），GND 接 − 軌（黑）。'},
+   {h:'插入 INA219',p:'六支腳插 8j～13j：VCC、GND、SCL、SDA、VIN−、VIN+，板子朝圖的上方。',warn:'請以板子絲印核對順序。VIN−、VIN+ 用排針，不用螺絲端子。'},
+   {h:'INA219 接電源',p:'VCC 那排（8g）接 + 軌，GND 那排（9g）接 − 軌。'},
+   {h:'I2C 兩條線',p:'SCL（10g）接 GPIO22，SDA（11g）接 GPIO21。'},
+   {h:'待測電源接 VIN+',p:'VIN+ 那排（13f）接到 + 軌：電流從這裡流進 INA219。'},
+   {h:'VIN− 接負載（電阻 + LED）',p:'220 Ω 電阻插 12i 和 17i；LED 長腳插 17g、短腳插 18g。'},
+   {h:'LED 短腳接地',p:'18f 接到 − 軌，電流回到 GND，電路完成。'},
+   {h:'完成！',p:'在 phyphox 選「4 電壓電流」，應看到約 3V 以下、幾 mA 的電流。換不同電阻或燈泡，比較 V-I 圖。',warn:'要量其他電源（電池）時：電池 + 接 VIN+，負載接 VIN−，電池 − 一定要和 ESP32 GND 接在一起。上限 26V、3.2A。'}]},
+ motor:{name:'馬達：L9110S + 霍爾測轉速',phy:'5 馬達特性',
+  parts:['ESP32 開發板 ×1','麵包板 ×1','L9110S 馬達驅動模組 ×1','小型直流馬達 ×1（附轉盤與磁鐵）','霍爾感測器模組 ×1','4 號電池盒 ×1（4 顆，6V）','公對母杜邦線 ×4、公對公杜邦線 ×5'],
+  items:[...POWER,
+   {s:2,t:'l9110'},
+   {s:3,t:'esp',pin:'25',to:'L:A-IA',color:'orange'},
+   {s:3,t:'esp',pin:'33',to:'L:A-IB',color:'purple'},
+   {s:4,t:'bat'},
+   {s:4,t:'lw',from:'L:GND',to:[28,'-'],color:'black'},
+   {s:5,t:'mod',cols:[18,19,20],name:'HALL',pins:['VCC','GND','DO'],color:'#1d4fa3',h:66},
+   {s:5,t:'jmp',from:[18,'g'],to:[18,'+'],color:'red'},
+   {s:5,t:'jmp',from:[19,'g'],to:[19,'-'],color:'black'},
+   {s:6,t:'esp',pin:'26',to:[20,'g'],color:'blue'}],
+  steps:[
+   {h:'準備材料',p:'L9110S 讓 ESP32 控制馬達轉速與方向；霍爾感測器量轉速（轉盤貼一顆磁鐵）。'},
+   {h:'電源軌：3.3V 與 GND',p:'ESP32 的 3.3V 接 + 軌（紅），GND 接 − 軌（黑）。'},
+   {h:'放 L9110S、接馬達',p:'L9110S 放在麵包板右邊，馬達兩條線鎖進「MOTOR A」端子。',warn:'L9110S 的排針用公對母杜邦線連接。'},
+   {h:'控制線 A-IA、A-IB',p:'A-IA 接 GPIO25，A-IB 接 GPIO33。'},
+   {h:'馬達電源（電池盒）',p:'電池盒 + 接 L9110S 的 VCC，電池盒 − 接 L9110S 的 GND；L9110S 的 GND 再接回麵包板 − 軌（共地）。',warn:'馬達不可以用 ESP32 的 3.3V 供電。一定要共地，否則控制訊號無效。'},
+   {h:'霍爾感測器',p:'霍爾模組插 18j～20j；VCC（18g）接 + 軌，GND（19g）接 − 軌。',warn:'把霍爾感測器固定在轉盤旁，磁鐵轉過時要靠近感測頭（約 5 mm 內）。'},
+   {h:'DO 接到 GPIO26',p:'霍爾模組 DO（20g）接到 ESP32 的 GPIO26。'},
+   {h:'完成！',p:'在 phyphox 選「5 馬達特性」，用滑桿調輸出（負值反轉），觀察轉速與電流。要量電流的話，把 INA219 串在電池盒 + 和 L9110S VCC 之間（SDA→21、SCL→22）。'}]}
+};
+
+// ---------- 繪圖 ----------
+const NS='http://www.w3.org/2000/svg';
+const el=(tag,attrs,parent)=>{const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);(parent||S).appendChild(e);return e};
+const txt=(x,y,t,attrs,parent)=>{const e=el('text',Object.assign({x,y},attrs||{}),parent);e.textContent=t;return e};
+
+function drawBreadboard(g){
+  const W=40+(COLS-1)*P+40,H=440;
+  el('rect',{x:BX,y:BY,width:W,height:H,rx:10,fill:'#f5f1e8',stroke:'#d8d0bf'},g);
+  el('rect',{x:BX,y:BY+H-10,width:W,height:10,rx:4,fill:'#ddd5c4'},g);
+  el('rect',{x:BX+8,y:BY+82+5*P-9,width:W-16,height:18,rx:4,fill:'#e7e0d1'},g);
+  // 軌道線
+  [['T+','#e23b2e',-1],['T-','#2f6fec',1],['+','#e23b2e',-1],['-','#2f6fec',1]].forEach(([r,col,d])=>{
+    el('line',{x1:BX+24,x2:BX+W-24,y1:ry(r)+d*11,y2:ry(r)+d*11,stroke:col,'stroke-width':2},g);
+    txt(BX+12,ry(r)+5,r.replace('T',''),{fill:col,'font-size':15,'font-weight':900,'text-anchor':'middle'},g);
+  });
+  for(let c=1;c<=COLS;c++){
+    for(const r of ['T+','T-','+','-']) if(c%6!==0) el('rect',{x:cx(c)-3.5,y:ry(r)-3.5,width:7,height:7,rx:1.5,fill:'#3a3a3a'},g);
+    for(const r in ROWS) el('rect',{x:cx(c)-3.5,y:ry(r)-3.5,width:7,height:7,rx:1.5,fill:'#3a3a3a'},g);
+    if(c===1||c%5===0){txt(cx(c),ry('j')-12,c,{'font-size':10,fill:'#8a8270','text-anchor':'middle',class:'lbl'},g);txt(cx(c),ry('a')+20,c,{'font-size':10,fill:'#8a8270','text-anchor':'middle',class:'lbl'},g)}
+  }
+  for(const r in ROWS){txt(BX+22,ry(r)+4,r,{'font-size':11,fill:'#8a8270','text-anchor':'middle',class:'lbl'},g);txt(BX+W-22,ry(r)+4,r,{'font-size':11,fill:'#8a8270','text-anchor':'middle',class:'lbl'},g)}
+}
+function drawESP(g,used){
+  const G=espGeom();
+  el('rect',{x:G.x0,y:G.y0,width:G.W,height:G.H,rx:8,fill:'#1b1d20',stroke:'#0b0c0d'},g);
+  // 天線與模組
+  el('rect',{x:G.x0+38,y:G.y0+6,width:G.W-76,height:30,rx:3,fill:'#2a2d31'},g);
+  el('path',{d:`M${G.x0+48} ${G.y0+28} h12 v-14 h12 v14 h12 v-14 h12 v14 h12 v-14 h12 v14`,stroke:'#d9b44a','stroke-width':2.5,fill:'none'},g);
+  el('rect',{x:G.x0+G.W/2-30,y:G.y0+40,width:60,height:120,rx:3,fill:'#c9ccd0',stroke:'#9aa0a6'},g);
+  txt(G.x0+G.W/2+4,G.y0+100,'ESP32-WROOM-32',{'font-size':9,'text-anchor':'middle',fill:'#4a5056',class:'lbl',transform:`rotate(-90 ${G.x0+G.W/2+4} ${G.y0+100})`},g);
+  txt(G.x0+G.W/2,G.y0+G.H-62,'ESP32',{'font-size':18,'font-weight':900,'text-anchor':'middle',fill:'#fff'},g);
+  txt(G.x0+G.W/2,G.y0+G.H-44,board==='30'?'DevKit 30P':'DevKitC 38P',{'font-size':10,'text-anchor':'middle',fill:'#aab',class:'lbl'},g);
+  // USB
+  el('rect',{x:G.x0+G.W/2-22,y:G.y0+G.H-16,width:44,height:24,rx:4,fill:'#b8bec5',stroke:'#7d848b'},g);
+  txt(G.x0+G.W/2,G.y0+G.H+24,'USB',{'font-size':11,'text-anchor':'middle',fill:'var(--mute)',class:'lbl'},g);
+  // 按鍵
+  el('rect',{x:G.x0+20,y:G.y0+G.H-28,width:16,height:12,rx:2,fill:'#ddd'},g);
+  el('rect',{x:G.x0+G.W-36,y:G.y0+G.H-28,width:16,height:12,rx:2,fill:'#ddd'},g);
+  // LED
+  el('circle',{cx:G.x0+G.W/2+36,cy:G.y0+G.H-22,r:4,fill:'#3d8bff'},g);
+  [['L',G.lx,1],['R',G.rx,-1]].forEach(([side,x,d])=>{
+    G.B[side].forEach((p,i)=>{
+      const y=G.py(i),on=used.has(p[1]+'@'+side)&&(p[1]!=='GND'||G.B[side].findIndex(q=>q[1]==='GND')===i);
+      el('rect',{x:x-6,y:y-6,width:12,height:12,rx:2,fill:'#c9a227'},g);
+      el('circle',{cx:x,cy:y,r:3,fill:'#1b1d20'},g);
+      txt(x+d*12,y+4,p[0],{'font-size':10,fill:on?'#ffb347':'#e8e8e8','text-anchor':d>0?'start':'end',class:'lbl','font-weight':on?900:500},g);
+    });
+  });
+}
+// L9110S 與電池盒（板外）
+const LX=1100,LY=144;
+const LPINS=['B-IA','B-IB','GND','VCC','A-IA','A-IB'];
+const lpin=n=>[LX+10,LY+30+LPINS.indexOf(n)*P];
+function drawL9110(g){
+  el('rect',{x:LX,y:LY,width:150,height:170,rx:6,fill:'#1d4fa3',stroke:'#123a7a'},g);
+  txt(LX+80,LY+20,'L9110S',{'font-size':14,'font-weight':900,'text-anchor':'middle',fill:'#fff'},g);
+  LPINS.forEach((n,i)=>{const [x,y]=lpin(n);el('rect',{x:x-6,y:y-6,width:12,height:12,rx:2,fill:'#c9a227'},g);txt(x+12,y+4,n,{'font-size':10,fill:'#fff',class:'lbl'},g)});
+  el('rect',{x:LX+70,y:LY+120,width:16,height:24,fill:'#222'},g);el('rect',{x:LX+100,y:LY+120,width:16,height:24,fill:'#222'},g);
+  // 端子
+  [['MOTOR B',LY+40],['MOTOR A',LY+150]].forEach(([n,y])=>{el('rect',{x:LX+150,y:y-22,width:26,height:44,rx:3,fill:'#2fae5a',stroke:'#1d7a3d'},g);txt(LX+146,y+4,n,{'font-size':9,fill:'#fff','text-anchor':'end',class:'lbl'},g)});
+  // 馬達
+  const mx=LX+215,my=LY+255;
+  el('path',{d:`M${LX+170} ${LY+140} C ${LX+200} ${LY+150}, ${mx-30} ${my-60}, ${mx-8} ${my-30}`,stroke:C.red,'stroke-width':3,fill:'none'},g);
+  el('path',{d:`M${LX+170} ${LY+160} C ${LX+190} ${LY+175}, ${mx-40} ${my-50}, ${mx-18} ${my-26}`,stroke:C.black,'stroke-width':3,fill:'none'},g);
+  el('rect',{x:mx-34,y:my-28,width:68,height:56,rx:24,fill:'#b9c0c7',stroke:'#7d848b'},g);
+  el('circle',{cx:mx,cy:my+46,r:30,fill:'#f3d34a',stroke:'#b8961a'},g);
+  el('circle',{cx:mx+18,cy:my+34,r:6,fill:'#9a2b2b'},g);
+  txt(mx,my+4,'馬達',{'font-size':13,'font-weight':900,'text-anchor':'middle',fill:'#222'},g);
+  txt(mx+38,my+64,'磁鐵',{'font-size':11,fill:'var(--mute)'},g);
+}
+const BTX=1090,BTY=454;
+function drawBattery(g){
+  el('rect',{x:BTX,y:BTY,width:170,height:92,rx:8,fill:'#2b2f34'},g);
+  for(let i=0;i<4;i++)el('rect',{x:BTX+12,y:BTY+10+i*19,width:146,height:15,rx:7,fill:i%2?'#c33':'#3a6fd8'},g);
+  txt(BTX+85,BTY+110,'電池盒 4 號 ×4（6V）',{'font-size':12,'text-anchor':'middle',fill:'var(--mute)'},g);
+  const [vx,vy]=lpin('VCC'),[gx,gy]=lpin('GND');
+  el('path',{class:'w',d:`M${BTX+4} ${BTY+20} C ${BTX-60} ${BTY-40}, ${vx-80} ${vy+40}, ${vx-6} ${vy}`,stroke:C.red,'stroke-width':4},g);
+  el('path',{class:'w',d:`M${BTX+4} ${BTY+70} C ${BTX-90} ${BTY+20}, ${gx-110} ${gy+60}, ${gx-6} ${gy}`,stroke:C.black,'stroke-width':4},g);
+  txt(BTX-6,BTY+16,'+',{'font-size':16,'font-weight':900,fill:C.red,'text-anchor':'end'},g);
+  txt(BTX-6,BTY+76,'−',{'font-size':16,'font-weight':900,fill:'var(--ink)','text-anchor':'end'},g);
+}
+function wireColor(c){return C[c]||c}
+function drawWire(g,pts,color){
+  const d=roundPath(pts,10);
+  el('path',{class:'w',d,stroke:'#0003','stroke-width':7,transform:'translate(1.5,2)'},g);
+  el('path',{class:'w',d,stroke:wireColor(color),'stroke-width':4.5},g);
+  const [x,y]=pts[pts.length-1];el('circle',{cx:x,cy:y,r:4.5,fill:wireColor(color),stroke:'#0006'},g);
+  const [x0,y0]=pts[0];el('circle',{cx:x0,cy:y0,r:4.5,fill:wireColor(color),stroke:'#0006'},g);
+}
+function roundPath(pts,r){
+  let d=`M${pts[0][0]} ${pts[0][1]}`;
+  for(let i=1;i<pts.length-1;i++){
+    const [x0,y0]=pts[i-1],[x1,y1]=pts[i],[x2,y2]=pts[i+1];
+    const l1=Math.hypot(x1-x0,y1-y0)||1,l2=Math.hypot(x2-x1,y2-y1)||1,rr=Math.min(r,l1/2,l2/2);
+    d+=` L${x1-(x1-x0)/l1*rr} ${y1-(y1-y0)/l1*rr} Q${x1} ${y1} ${x1+(x2-x1)/l2*rr} ${y1+(y2-y1)/l2*rr}`;
+  }
+  const [xl,yl]=pts[pts.length-1];return d+` L${xl} ${yl}`;
+}
+// 杜邦線走法：先到麵包板左側，再沿中間凹槽走到目標直排，最後垂直接到插孔
+const GAPY=BY+82+5*P;
+function espRoute(pin,tx,ty,lane,offboard){
+  const p=pinPos(pin),G=espGeom(),gy=GAPY-6+(lane%3)*6,ex=BX-12-lane*7;
+  if(ty>ry('a')){ // 接到下方電源軌：直接走過去
+    if(p.side==='R'){const lx=G.x0+G.W+12+lane*7;return [[p.x,p.y],[lx,p.y],[lx,ty],[tx,ty]];}
+    const lx=G.x0-12-lane*7,by=G.y0+G.H+30+lane*8;return [[p.x,p.y],[lx,p.y],[lx,by],[ex,by],[ex,ty],[tx,ty]];
+  }
+  let pts;
+  if(p.side==='R'){const lx=G.x0+G.W+12+lane*7;pts=[[p.x,p.y],[lx,p.y],[lx,gy]];}
+  else{const lx=G.x0-12-lane*7,by=G.y0+G.H+30+lane*8;pts=[[p.x,p.y],[lx,p.y],[lx,by],[ex,by],[ex,gy]];}
+  if(offboard){const bx=BX+40+(COLS-1)*P+60+lane*8;return pts.concat([[bx,gy],[bx,ty],[tx,ty]]);}
+  return pts.concat([[tx+(lane%2?-4:4),gy],[tx,ty]]);
+}
+function resistor(g,a,b,val,bands){
+  const [x1,y1]=hole(...a),[x2,y2]=hole(...b);
+  const ang=Math.atan2(y2-y1,x2-x1)*180/Math.PI,len=Math.hypot(x2-x1,y2-y1),mx=(x1+x2)/2,my=(y1+y2)/2;
+  const gg=el('g',{transform:`translate(${mx},${my}) rotate(${ang})`},g);
+  el('line',{x1:-len/2,x2:len/2,y1:0,y2:0,stroke:'#9aa0a6','stroke-width':2.5},gg);
+  el('rect',{x:-22,y:-8,width:44,height:16,rx:7,fill:'#e8cf9c',stroke:'#b39a62'},gg);
+  bands.concat(['#c9a227']).forEach((c,i)=>el('rect',{x:-15+i*8+(i===3?4:0),y:-8,width:4,height:16,fill:c},gg));
+  txt(mx,my-14,val,{'font-size':11,'text-anchor':'middle',fill:'var(--ink)','font-weight':700},g);
+  el('circle',{cx:x1,cy:y1,r:3,fill:'#9aa0a6'},g);el('circle',{cx:x2,cy:y2,r:3,fill:'#9aa0a6'},g);
+}
+function led(g,a,k,col){
+  const [xa,ya]=hole(...a),[xk,yk]=hole(...k),mx=(xa+xk)/2,top=Math.min(ya,yk)-30;
+  el('path',{d:`M${xa} ${ya} V${top+14}`,stroke:'#9aa0a6','stroke-width':2.5},g);
+  el('path',{d:`M${xk} ${yk} V${top+18}`,stroke:'#9aa0a6','stroke-width':2.5},g);
+  el('path',{d:`M${mx-11} ${top+16} v-8 a11 11 0 0 1 22 0 v8 z`,fill:col,stroke:'#0004','fill-opacity':.9},g);
+  el('rect',{x:mx-13,y:top+14,width:26,height:5,rx:2,fill:col,stroke:'#0004'},g);
+  txt(xa-8,ya-16,'+',{'font-size':13,'font-weight':900,fill:'#d33','text-anchor':'end'},g);
+  txt(xk+8,yk-16,'−',{'font-size':13,'font-weight':900,fill:'var(--ink)'},g);
+}
+function module(g,it){
+  const xs=it.cols.map(c=>cx(c)),y=ry('j'),x0=Math.min(...xs)-16,x1=Math.max(...xs)+16,h=it.h;
+  el('rect',{x:x0,y:y-h-8,width:x1-x0,height:h,rx:5,fill:it.color,stroke:'#0005'},g);
+  el('rect',{x:x0+6,y:y-14,width:x1-x0-12,height:10,rx:2,fill:'#111'},g);
+  it.cols.forEach((c,i)=>{el('rect',{x:cx(c)-3,y:y-10,width:6,height:12,fill:'#c9a227'},g);
+    txt(cx(c),y-20,it.pins[i],{'font-size':9,fill:'#fff','text-anchor':'middle',class:'lbl',transform:`rotate(-90 ${cx(c)} ${y-20})`},g)});
+  txt((x0+x1)/2,y-h+10,it.name,{'font-size':12,'font-weight':900,'text-anchor':'middle',fill:'#fff'},g);
+  if(it.slot){el('rect',{x:(x0+x1)/2-16,y:y-h-36,width:32,height:34,rx:3,fill:'#111'},g);el('rect',{x:(x0+x1)/2-4,y:y-h-36,width:8,height:26,fill:it.color},g)}
+  if(it.term){el('rect',{x:(x0+x1)/2-20,y:y-h-26,width:40,height:22,rx:3,fill:'#2fae5a',stroke:'#1d7a3d'},g)}
+  if(it.name==='HALL'){el('rect',{x:(x0+x1)/2-7,y:y-h-22,width:14,height:16,rx:2,fill:'#111'},g)}
+}
+function probe(g,it){
+  const bx=cx(16),by=BY-8;
+  el('rect',{x:bx-70,y:by-30,width:90,height:18,rx:9,fill:'#c8ced4',stroke:'#8d959c'},g);
+  el('path',{d:`M${bx+20} ${by-21} C ${bx+60} ${by-21}, ${bx+30} ${by+4}, ${bx} ${by+6}`,stroke:'#222','stroke-width':9,fill:'none','stroke-linecap':'round'},g);
+  txt(bx-25,by-36,'DS18B20 探頭',{'font-size':12,'font-weight':700,'text-anchor':'middle',fill:'var(--ink)'},g);
+  it.pins.forEach(([c,r,col,n],i)=>{
+    const [x,y]=hole(c,r);
+    el('path',{class:'w',d:`M${bx-6+i*6} ${by+6} C ${bx-6+i*6} ${by+40}, ${x} ${y-50}, ${x} ${y}`,stroke:C[col],'stroke-width':4},g);
+    el('circle',{cx:x,cy:y,r:4,fill:C[col],stroke:'#0006'},g);
+  });
+}
+
+// ---------- 狀態 ----------
+let modeKey='dsprobe',step=0,showAll=false;
+try{const m=localStorage.getItem('wire-mode');if(MODES[m])modeKey=m;const b=localStorage.getItem('wire-board');if(BOARDS[b])board=b}catch(e){}
+$('msel').innerHTML=Object.entries(MODES).map(([k,m])=>`<option value="${k}">${m.name}</option>`).join('');
+$('msel').value=modeKey;$('bsel').value=board;
+
+function endpointText(it){
+  if(it.t==='esp'){const to=typeof it.to==='string'?'L9110S「'+it.to.slice(2)+'」':'麵包板 '+hname(...it.to);return [it.color,`${pinText(it.pin)} → ${to}`]}
+  if(it.t==='jmp')return [it.color,`麵包板 ${hname(...it.from)} → ${hname(...it.to)}`];
+  if(it.t==='lw')return [it.color,`L9110S「${it.from.slice(2)}」→ 麵包板 ${hname(...it.to)}`];
+  return null;
+}
+
+function render(){
+  const M=MODES[modeKey],N=M.steps.length;
+  if(step>=N)step=N-1;
+  S.innerHTML='';
+  const used=new Set(M.items.filter(it=>it.t==='esp'&&(showAll||it.s<=step)).map(it=>it.pin+'@'+pinPos(it.pin).side));
+  const gb=el('g',{});drawBreadboard(gb);
+  const ge=el('g',{});drawESP(ge,used);
+  const layers={parts:el('g',{}),wires:el('g',{})};
+  let lane=0;
+  M.items.forEach(it=>{
+    const cls='it '+(showAll?'':(it.s<step?'past':it.s===step?'cur':'future'));
+    const isWire=['esp','jmp','lw'].includes(it.t);
+    const g=el('g',{class:cls},isWire?layers.wires:layers.parts);
+    if(it.t==='esp'){
+      let tx,ty;
+      if(typeof it.to==='string'){[tx,ty]=lpin(it.to.slice(2));tx-=6}else [tx,ty]=hole(...it.to);
+      drawWire(g,espRoute(it.pin,tx,ty,lane++,typeof it.to==='string'),it.color);
+      const p=pinPos(it.pin);el('rect',{class:'pinhi',x:p.x-9,y:p.y-9,width:18,height:18,rx:4},g);
+    }else if(it.t==='jmp'){
+      const [x1,y1]=hole(...it.from),[x2,y2]=hole(...it.to);
+      const mid=(y1+y2)/2;drawWire(g,[[x1,y1],[x1+8,mid],[x2,y2]],it.color);
+    }else if(it.t==='lw'){
+      const [x1,y1]=lpin(it.from.slice(2)),[x2,y2]=hole(...it.to);
+      drawWire(g,[[x1-6,y1],[x1-40,y1],[x1-40,y2+30],[x2,y2+30],[x2,y2]],it.color);
+    }
+    else if(it.t==='res')resistor(g,it.a,it.b,it.val,it.bands);
+    else if(it.t==='led')led(g,it.a,it.k,it.col);
+    else if(it.t==='mod')module(g,it);
+    else if(it.t==='probe')probe(g,it);
+    else if(it.t==='l9110')drawL9110(g);
+    else if(it.t==='bat')drawBattery(g);
+  });
+  // 步驟卡
+  const st=M.steps[step];
+  const conns=M.items.filter(it=>it.s===step).map(endpointText).filter(Boolean);
+  const holes=M.items.filter(it=>it.s===step&&it.t==='res').map(it=>`電阻 ${it.val}：${it.a.join('')} ↔ ${it.b.join('')}`)
+    .concat(M.items.filter(it=>it.s===step&&it.t==='led').map(it=>`LED：長腳 ${it.a.join('')}、短腳 ${it.k.join('')}`))
+    .concat(M.items.filter(it=>it.s===step&&it.t==='mod').map(it=>`${it.name}：`+it.cols.map((c,i)=>`${it.pins[i]} ${c}j`).join('、')));
+  $('steps').innerHTML=`
+    <div class="prog"><b>步驟 <span>${step+1}</span> / ${N}</b><div class="dots">${M.steps.map((_,i)=>`<i class="${i<step?'d':i===step?'c':''}"></i>`).join('')}</div></div>
+    <h2>${st.h}</h2>
+    <p>${st.p}</p>
+    ${st.warn?`<p class="warn">⚠ ${st.warn}</p>`:''}
+    ${conns.length?`<ul class="conn">${conns.map(([c,t])=>`<li><span class="sw" style="background:${wireColor(c)}"></span><span>${CN[c]||''}線：<code>${t}</code></span></li>`).join('')}</ul>`:''}
+    ${holes.length?`<div class="card"><b>插孔位置</b><ul>${holes.map(h=>`<li>${h}</li>`).join('')}</ul></div>`:''}
+    ${step===0?`<div class="card"><b>材料</b><ul>${M.parts.map(x=>`<li>${x}</li>`).join('')}</ul></div>
+      <div class="card"><b>板子擺法</b><ul><li>${BOARDS[board].name}：天線朝上、USB 朝下</li><li>麵包板直排用數字（1～30）、橫列用字母（a～j）表示，例如 15g</li><li>同一直排的 a–e 相通、f–j 相通；下方兩條長軌 + / − 整排相通</li></ul></div>`:''}
+    ${M.phy?`<p>phyphox「換感測器」要選：<span class="mode">${M.phy}</span></p>`:''}`;
+  $('prev').disabled=step===0;
+  $('next').textContent=step===N-1?'重新開始 ↺':'下一步 ›';
+  $('all').classList.toggle('on',showAll);
+}
+$('prev').onclick=()=>{if(step>0){step--;render()}};
+$('next').onclick=()=>{const N=MODES[modeKey].steps.length;step=step<N-1?step+1:0;render()};
+$('msel').onchange=e=>{modeKey=e.target.value;step=0;try{localStorage.setItem('wire-mode',modeKey)}catch(_){}render()};
+$('bsel').onchange=e=>{board=e.target.value;try{localStorage.setItem('wire-board',board)}catch(_){}render()};
+$('all').onclick=()=>{showAll=!showAll;render()};
+$('v3d').onclick=()=>{$('w3').classList.add('tilt');$('v3d').classList.add('on');$('v2d').classList.remove('on')};
+$('v2d').onclick=()=>{$('w3').classList.remove('tilt');$('v2d').classList.add('on');$('v3d').classList.remove('on')};
+document.addEventListener('keydown',e=>{if(e.target.tagName==='SELECT')return;if(e.key==='ArrowRight')$('next').click();if(e.key==='ArrowLeft'&&!$('prev').disabled)$('prev').click()});
+render();
+}
+</script>
+</body>
+</html>

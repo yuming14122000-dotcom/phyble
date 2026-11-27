@@ -1,0 +1,170 @@
+{
+  "firmwares": [
+    {
+      "id": "phyble-multi",
+      "name": "PhyBLE 多感測器（溫度、光閘、轉速、電壓電流、馬達）",
+      "version": "2026-11-27",
+      "chip": "ESP32",
+      "description": "學生可在 phyphox 的「換感測器」分頁切換模式。arduino-esp32 2.0.17、phyphox BLE 1.3.1。",
+      "nvs": {
+        "addr": "0x9000",
+        "size": "0x5000",
+        "namespace": "phyble",
+        "group": "group",
+        "mode": "mode"
+      },
+      "parts": [
+        {
+          "addr": "0x1000",
+          "file": "phyble-multi/bootloader.bin",
+          "name": "bootloader"
+        },
+        {
+          "addr": "0x8000",
+          "file": "phyble-multi/partitions.bin",
+          "name": "分區表 huge_app"
+        },
+        {
+          "addr": "0xe000",
+          "file": "phyble-multi/boot_app0.bin",
+          "name": "boot_app0（OTA 選擇資料）"
+        },
+        {
+          "addr": "0x10000",
+          "file": "phyble-multi/app.bin",
+          "name": "應用程式"
+        }
+      ],
+      "modes": [
+        {
+          "value": 1,
+          "name": "溫度",
+          "part": "DS18B20",
+          "rows": [
+            [
+              "DS18B20 紅線（VCC）",
+              "3.3V"
+            ],
+            [
+              "DS18B20 黑線（GND）",
+              "GND"
+            ],
+            [
+              "DS18B20 黃線（DQ）",
+              "GPIO4"
+            ]
+          ],
+          "note": "裸探頭要在 DQ 與 3.3V 之間加 4.7 kΩ 上拉電阻（轉接模組板已內建）。可並聯兩支探頭，phyphox 會顯示溫度 1、溫度 2。每秒一筆。"
+        },
+        {
+          "value": 2,
+          "name": "光閘計時",
+          "part": "XD-51 槽型光耦",
+          "rows": [
+            [
+              "VCC",
+              "3.3V"
+            ],
+            [
+              "GND",
+              "GND"
+            ],
+            [
+              "DO",
+              "GPIO27"
+            ]
+          ],
+          "note": "開機時槽內不要有東西。每次遮光記錄：遮光時間 Δt、與上次遮光的間隔、次數。速度 = 擋片寬度 ÷ Δt；單擺週期看「間隔」。"
+        },
+        {
+          "value": 3,
+          "name": "轉速",
+          "part": "霍爾感測器",
+          "rows": [
+            [
+              "VCC",
+              "3.3V"
+            ],
+            [
+              "GND",
+              "GND"
+            ],
+            [
+              "DO",
+              "GPIO26"
+            ]
+          ],
+          "note": "轉盤貼磁鐵，經過感測器時觸發。開機時磁鐵不要停在感測器前。轉盤上的磁鐵數量在 phyphox 的滑桿設定。"
+        },
+        {
+          "value": 4,
+          "name": "電壓電流",
+          "part": "INA219",
+          "rows": [
+            [
+              "VCC",
+              "3.3V"
+            ],
+            [
+              "GND",
+              "GND"
+            ],
+            [
+              "SDA",
+              "GPIO21"
+            ],
+            [
+              "SCL",
+              "GPIO22"
+            ],
+            [
+              "Vin+",
+              "待測電源正極"
+            ],
+            [
+              "Vin−",
+              "負載（電阻、燈泡…）"
+            ]
+          ],
+          "note": "INA219 串在電源正極與負載之間；待測電路的負極要和 ESP32 GND 接在一起，電壓才量得到。上限 26V、±3.2A。"
+        },
+        {
+          "value": 5,
+          "name": "馬達特性",
+          "part": "L9110S + 霍爾 + INA219",
+          "rows": [
+            [
+              "L9110S A-IA",
+              "GPIO25"
+            ],
+            [
+              "L9110S A-IB",
+              "GPIO33"
+            ],
+            [
+              "L9110S VCC",
+              "馬達電源 +（2.5–12V）"
+            ],
+            [
+              "L9110S GND",
+              "電源 − 和 ESP32 GND"
+            ],
+            [
+              "馬達",
+              "L9110S A 路輸出"
+            ],
+            [
+              "霍爾 DO（選配）",
+              "GPIO26"
+            ],
+            [
+              "INA219（選配）",
+              "SDA 21、SCL 22，串在電源 + 與 L9110S VCC 之間"
+            ]
+          ],
+          "note": "在 phyphox 用滑桿調輸出 −100～100%（負值反轉）。馬達請用電池盒或外接電源供電，不要用 ESP32 的 3.3V。"
+        }
+      ]
+    }
+  ]
+}

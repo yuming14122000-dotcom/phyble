@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PhyBLE 燒錄站</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@500;700;800&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: 實驗室工作台上的工具，清楚、可靠、一眼看懂下一步
+   IDEA: 器材標籤機 + 七段顯示器：大大的 PHY-G07 就是這塊板子將要得到的名字
+   PICTURE: 頂部的組別讀數牌與組別鍵盤本身就是主畫面
+   COLOUR and TYPE: 白底、墨色、phyphox 橘為主色，綠色只用在「完成」；Figtree + Noto Sans TC，讀數用等寬字
+   LAYOUT: 讀數牌與按鈕在上，組別鍵盤，進度與紀錄在下；600px 以下單欄 */
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#121416);--panel:light-dark(#f4f2ef,#1c1f22);--ink:light-dark(#16181b,#eef0f2);--mute:light-dark(#5d636b,#a3aab3);--line:light-dark(#dedad4,#30353a);--acc:#f26b1d;--acc-ink:#fff;--ok:#12915a;--bad:#d12f2f;--disp:light-dark(#1b1d20,#0a0b0c)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Figtree","Noto Sans TC",system-ui,sans-serif;overflow-x:clip}
+.band{padding:clamp(22px,4vw,56px) max(5vw,16px)}
+.wrap{max-width:1100px;margin:0 auto}
+h1{font-size:clamp(28px,4vw,40px);line-height:1.05;margin:0 0 6px;font-weight:800;text-wrap:balance}
+.sub{color:var(--mute);margin:0 0 22px;max-width:62ch}
+.top{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:24px;align-items:stretch}
+.disp{background:var(--disp);color:#ffb37f;border-radius:18px;padding:22px 24px;display:flex;flex-direction:column;justify-content:space-between;gap:14px;box-shadow:inset 0 0 0 1px #ffffff14,0 10px 30px #0002}
+.disp small{color:#9aa1a9;font-size:13px}
+.name{font:700 clamp(46px,8vw,88px)/1 "JetBrains Mono",monospace;letter-spacing:.02em;color:#ff8a3d;text-shadow:0 0 18px #ff6a0055}
+.step{display:flex;gap:10px;align-items:center}
+.step button{width:52px;height:52px;border-radius:12px;border:1px solid #ffffff30;background:#ffffff10;color:#fff;font-size:26px;cursor:pointer}
+.step input{width:90px;height:52px;border-radius:12px;border:1px solid #ffffff30;background:#000;color:#ffb37f;font:700 26px "JetBrains Mono",monospace;text-align:center}
+.acts{display:flex;flex-direction:column;gap:12px}
+.btn{min-height:56px;border-radius:14px;border:0;font:700 18px/1.2 "Figtree","Noto Sans TC",sans-serif;padding:12px 18px;cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:2px}
+.btn span{font-weight:500;font-size:14px;opacity:.85}
+.primary{background:var(--acc);color:var(--acc-ink);min-height:84px;font-size:22px}
+.primary:hover{filter:brightness(1.06)}
+.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--line)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,input:focus-visible{outline:3px solid #2b7bff;outline-offset:2px}
+.opt{display:flex;gap:10px;align-items:center;color:var(--mute);font-size:15px;min-height:44px}
+.opt input{width:20px;height:20px;accent-color:var(--acc)}
+.keys{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:8px;margin-top:22px}
+.keys button{height:46px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:700 16px "JetBrains Mono",monospace;cursor:pointer}
+.keys button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.keys button.done{box-shadow:inset 0 -4px 0 var(--ok)}
+.h2{font-size:20px;margin:28px 0 10px}
+.modes{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.modes button{min-height:64px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:700 17px/1.2 "Figtree","Noto Sans TC",sans-serif;cursor:pointer;text-align:left;padding:10px 12px}
+.modes button small{display:block;font-weight:500;font-size:13px;color:var(--mute);margin-top:3px}
+.modes button.on{border:2px solid var(--acc);background:color-mix(in srgb,var(--acc) 10%,var(--bg))}
+.wire{margin-top:12px;border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.wire table{margin:0}.wire td:nth-child(2){font-family:"JetBrains Mono",monospace;font-weight:700;white-space:nowrap}
+.wire p{margin:8px 0 0;color:var(--mute);font-size:15px}
+.fwrow{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.fwrow select{flex:1 1 280px;height:48px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:600 16px "Figtree","Noto Sans TC",sans-serif;padding:0 12px}
+.filebtn{display:inline-flex;align-items:center;height:48px;padding:0 16px;border-radius:12px;border:1px dashed var(--line);cursor:pointer;font-weight:600;color:var(--ink)}
+.filebtn:focus-within{outline:3px solid #2b7bff}
+.fwdesc{color:var(--mute);margin:8px 0 0;font-size:15px}
+.status{margin-top:22px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px 20px}
+.msg{font-weight:700;font-size:18px;margin:0 0 10px}
+.msg.ok{color:var(--ok)}.msg.bad{color:var(--bad)}
+.bar{height:12px;background:var(--line);border-radius:6px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--acc);transition:width .2s}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+details{margin-top:14px}
+summary{cursor:pointer;color:var(--mute);min-height:32px}
+pre{overflow:auto;max-height:260px;background:var(--disp);color:#cfd5db;border-radius:10px;padding:12px;font:13px/1.45 "JetBrains Mono",monospace;margin:8px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.serial{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.serial input{flex:1 1 200px;height:44px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:16px "JetBrains Mono",monospace;padding:0 12px}
+.serial button{height:44px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:0 14px;font:600 15px "Figtree","Noto Sans TC",sans-serif;cursor:pointer}
+.guide{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;margin-top:8px}
+.guide div{border-top:2px solid var(--ink);padding-top:10px}
+.guide b{display:block;font-size:17px;margin-bottom:4px}
+.guide p{margin:0;color:var(--mute);font-size:15px}
+.warn{background:#fff1e6;color:#7a3300;border-radius:12px;padding:12px 16px;margin:0 0 18px;font-size:15px;display:none}
+:root[data-theme=dark] .warn{background:#3a2210;color:#ffd6b8}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .warn{background:#3a2210;color:#ffd6b8}}
+table{border-collapse:collapse;width:100%;font-size:15px;margin-top:10px}
+td,th{border-bottom:1px solid var(--line);padding:8px 6px;text-align:left}
+td:first-child{font-family:"JetBrains Mono",monospace;white-space:nowrap}
+.foot{color:var(--mute);font-size:14px}
+@media(max-width:820px){.keys{grid-template-columns:repeat(8,minmax(0,1fr))}.guide{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:820px){.modes{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:600px){.modes{grid-template-columns:repeat(2,minmax(0,1fr))}.top{grid-template-columns:minmax(0,1fr)}.keys{grid-template-columns:repeat(6,minmax(0,1fr))}.guide{grid-template-columns:minmax(0,1fr)}}
+</style>
+</head>
+<body>
+<section class="band"><div class="wrap">
+  <h1>PhyBLE 燒錄站</h1>
+  <p class="sub">ESP32 多感測器 → iPad phyphox。選組別與起始感測器、插上 USB、按一下：韌體、組別、感測器一起寫入。藍牙名稱 PHY-G01、PHY-G02…；學生之後也能在 phyphox 的「換感測器」分頁自己切換。</p>
+  <p style="margin:-10px 0 20px"><a href="wiring.html" style="font-weight:700;color:var(--acc)">給學生看的接線引導（麵包板步驟圖）→</a></p>
+  <p class="warn" id="warn"></p>
+
+  <div class="top">
+    <div class="disp">
+      <small id="dispsub">這塊 ESP32 的藍牙名稱將會是</small>
+      <div class="name" id="name">PHY-G01</div>
+      <div class="step">
+        <button id="dec" aria-label="上一組">−</button>
+        <input id="grp" type="number" min="1" max="99" value="1" inputmode="numeric" aria-label="組別">
+        <button id="inc" aria-label="下一組">+</button>
+        <small>組別 1 ~ 99</small>
+      </div>
+    </div>
+    <div class="acts">
+      <button class="btn primary" id="flash">燒錄韌體＋設定組別<span>第一次使用或要更新程式時按這個（約 40 秒）</span></button>
+      <button class="btn ghost" id="setonly">只改組別／感測器（不重燒）<span>板子已有本程式：經 USB 序列埠寫入 NVS</span></button>
+      <label class="opt"><input type="checkbox" id="auto" checked>完成後自動跳到下一組（連續燒很多塊板子）</label>
+    </div>
+  </div>
+
+  <div class="keys" id="keys"></div>
+
+  <h2 class="h2">韌體</h2>
+  <div class="fwrow">
+    <select id="fwsel" aria-label="選擇韌體"></select>
+    <label class="filebtn">載入自己的 .bin<input type="file" id="fwfile" accept=".bin" hidden></label>
+  </div>
+  <p class="fwdesc" id="fwdesc"></p>
+  <div id="modebox">
+  <h2 class="h2">起始感測器</h2>
+  <div class="modes" id="modes" role="radiogroup" aria-label="起始感測器"></div>
+  <div class="wire" id="wire"></div>
+  </div>
+
+  <div class="status">
+    <p class="msg" id="msg">準備就緒。插上 ESP32，選好韌體與組別後按「燒錄」。</p>
+    <div class="bar"><i id="bar"></i></div>
+    <details id="det">
+      <summary>序列埠監看與紀錄</summary>
+      <pre id="log"></pre>
+      <div class="serial">
+        <input id="cmd" placeholder="指令：G 3、M 2、SET 3 2、?、LED" aria-label="序列埠指令">
+        <button id="send">送出</button>
+        <button id="mon">開啟監看</button>
+      </div>
+    </details>
+  </div>
+</div></section>
+
+<section class="band" style="padding-top:0"><div class="wrap">
+  <div class="guide">
+    <div><b>1　接線</b><p>照上方接線表。感測器 VCC 一律接 3.3V，GND 共地；每種感測器腳位固定，互不衝突。</p></div>
+    <div><b>2　燒錄</b><p>用 Chrome 或 Edge 開本頁，按燒錄後選擇 USB 序列埠（CP210x / CH340）。連不上時按住板子的 BOOT 鍵再試。</p></div>
+    <div><b>3　看燈號</b><p>板載藍燈（GPIO2）開機先閃組別：長閃 = 十位、短閃 = 個位（第 12 組 = 長 1 短 2），未設定則快閃。之後每秒短亮 = 等待連線，恆亮 = phyphox 已連上。</p></div>
+    <div><b>4　iPad phyphox</b><p>phyphox → ＋ → 新增藍牙實驗 → 選 PHY-Gxx → ▶ 開始。要換感測器：到最後一頁「換感測器」選好並按 ▶，板子重開後重新加入。資料用右上選單「匯出」。</p></div>
+  </div>
+  <table>
+    <tr><th>位址</th><th>寫入內容</th></tr>
+    <tbody id="parts"></tbody>
+  </table>
+  <p class="foot" id="ver"></p>
+</div></section>
+
+<script src="js/esptool.bundle.js"></script>
+<script src="js/nvs.js"></script>
+<script>
+{
+const $=id=>document.getElementById(id);
+const logEl=$('log'),msgEl=$('msg'),barEl=$('bar');
+let mode=1,group=1,busy=false,port=null,monReader=null,monOn=false,curTransport=null;
+const done=new Set();
+try{const g=parseInt(localStorage.getItem('phyble-group'));if(g>=1&&g<=99)group=g;const mm=parseInt(localStorage.getItem('phyble-mode'));if(mm>=1&&mm<=5)mode=mm;JSON.parse(localStorage.getItem('phyble-done')||'[]').forEach(x=>done.add(x))}catch(e){}
+
+const pad=n=>String(n).padStart(2,'0');
+const b64=s=>{const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u};
+function log(t){logEl.textContent+=t;if(logEl.textContent.length>60000)logEl.textContent=logEl.textContent.slice(-40000);logEl.scrollTop=logEl.scrollHeight}
+function say(t,cls=''){msgEl.textContent=t;msgEl.className='msg '+cls}
+function prog(p){barEl.style.width=(Math.max(0,Math.min(1,p))*100).toFixed(1)+'%'}
+function save(){try{localStorage.setItem('phyble-group',group);localStorage.setItem('phyble-mode',mode);localStorage.setItem('phyble-done',JSON.stringify([...done]))}catch(e){}}
+
+const esc=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let MANIFEST={firmwares:[]},FW=null,MODES=[null],CUSTOM=null;
+const hex=v=>typeof v==='number'?v:parseInt(v,16);
+function renderModes(){
+  const has=MODES.length>1;$('modebox').style.display=has?'':'none';
+  if(!has){$('dispsub').textContent='藍牙名稱';return}
+  if(!MODES[mode])mode=1;
+  $('modes').innerHTML=MODES.slice(1).map((m,i)=>`<button role="radio" aria-checked="${i+1===mode}" data-m="${i+1}" class="${i+1===mode?'on':''}">${i+1}　${esc(m.name)}<small>${esc(m.part||'')}</small></button>`).join('');
+  const m=MODES[mode];
+  $('wire').innerHTML=`<table><tr><th>${esc(m.part||'')} 腳位</th><th>接到</th></tr>${(m.rows||[]).map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join('')}</table><p>${esc(m.note||'')}</p>`;
+  $('dispsub').textContent='藍牙名稱（起始感測器：'+m.name+'）';
+}
+$('modes').addEventListener('click',e=>{const b=e.target.closest('button');if(b&&!busy){mode=parseInt(b.dataset.m);save();renderModes()}});
+function render(){
+  $('name').textContent='PHY-G'+pad(group);
+  $('grp').value=group;
+  const n=Math.max(24,Math.ceil(Math.max(group,...done,0)/12)*12);
+  $('keys').innerHTML=Array.from({length:n},(_,i)=>i+1).map(g=>`<button data-g="${g}" class="${g===group?'on':''} ${done.has(g)?'done':''}" aria-label="第 ${g} 組">${pad(g)}</button>`).join('');
+}
+function setGroup(g){g=parseInt(g);if(!(g>=1&&g<=99))return;group=g;save();render()}
+$('keys').addEventListener('click',e=>{const b=e.target.closest('button');if(b&&!busy)setGroup(b.dataset.g)});
+$('dec').onclick=()=>setGroup(group-1);$('inc').onclick=()=>setGroup(group+1);
+$('grp').addEventListener('change',e=>setGroup(e.target.value));
+
+function renderFw(){
+  if(!FW){$('parts').innerHTML='';$('fwdesc').textContent='';return}
+  const nvs=FW.nvs?[{addr:hex(FW.nvs.addr),name:'NVS 分區（組別'+(MODES.length>1?'與起始感測器':'')+'，由本頁產生）'}]:[];
+  const rows=[...FW.parts.map(p=>({addr:hex(p.addr),name:p.name||p.file})),...nvs].sort((a,b)=>a.addr-b.addr);
+  $('parts').innerHTML=rows.map(p=>`<tr><td>0x${p.addr.toString(16).padStart(5,'0')}</td><td>${esc(p.name)}</td></tr>`).join('');
+  $('fwdesc').textContent=[FW.description,FW.version&&('版本 '+FW.version)].filter(Boolean).join('　');
+}
+function selectFw(id){
+  if(id==='__custom'&&CUSTOM)FW=CUSTOM;else FW=MANIFEST.firmwares.find(f=>f.id===id)||MANIFEST.firmwares[0]||null;
+  MODES=[null,...((FW&&FW.modes)||[])];
+  try{localStorage.setItem('phyble-fw',FW?FW.id:'')}catch(e){}
+  renderModes();renderFw();
+}
+function fillSel(){
+  const opts=MANIFEST.firmwares.map(f=>`<option value="${esc(f.id)}">${esc(f.name)}${f.version?'（'+esc(f.version)+'）':''}</option>`);
+  if(CUSTOM)opts.push(`<option value="__custom">自己的檔案：${esc(CUSTOM.name)}</option>`);
+  $('fwsel').innerHTML=opts.join('');
+  if(FW)$('fwsel').value=FW.id;
+}
+$('fwsel').addEventListener('change',e=>selectFw(e.target.value));
+$('fwfile').addEventListener('change',async e=>{
+  const f=e.target.files[0];if(!f)return;
+  const data=new Uint8Array(await f.arrayBuffer());
+  // 合併檔從 0x0 開始（開頭 0x1000 為 0xFF，bootloader 在 0x1000）；單獨的應用程式檔開頭是 0xE9
+  const merged=data.length>0x1000&&data[0]===0xFF&&data[0x1000]===0xE9;
+  const isApp=data[0]===0xE9;
+  if(!merged&&!isApp){say('這個檔案看起來不是 ESP32 韌體（.bin）。請選 Arduino「匯出已編譯的二進位檔」產生的 .merged.bin 或 .ino.bin。','bad');return}
+  CUSTOM={id:'__custom',name:f.name,description:merged?'合併檔，從 0x0 寫入（含 bootloader 與分區表）':'應用程式檔，寫入 0x10000（板子需已燒過同樣分區的 bootloader 與分區表）',
+    parts:[{addr:merged?0:0x10000,name:f.name,data}],nvs:{addr:'0x9000',size:'0x5000',namespace:'phyble',group:'group'},modes:[]};
+  selectFw('__custom');fillSel();e.target.value='';
+});
+async function loadManifest(){
+  try{
+    const r=await fetch('firmware/manifest.json',{cache:'no-cache'});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    MANIFEST=await r.json();
+  }catch(e){
+    say('讀不到 firmware/manifest.json（'+e.message+'）。請用網址開本頁（GitHub Pages 或本機 http 伺服器），不要直接雙擊檔案。','bad');
+  }
+  let last='';try{last=localStorage.getItem('phyble-fw')||''}catch(e){}
+  selectFw(last);fillSel();
+}
+async function fetchPart(p){
+  if(p.data)return p.data;
+  const r=await fetch('firmware/'+p.file,{cache:'no-cache'});
+  if(!r.ok)throw new Error('下載 '+p.file+' 失敗（HTTP '+r.status+'）');
+  return new Uint8Array(await r.arrayBuffer());
+}
+
+const canSerial='serial' in navigator;
+if(!canSerial){$('warn').style.display='block';$('warn').textContent='這個瀏覽器不支援 Web Serial。請改用電腦版 Chrome 或 Edge（iPad 與手機不支援燒錄）。';}
+
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function setBusy(b){busy=b;$('flash').disabled=b||!canSerial;$('setonly').disabled=b||!canSerial;$('mon').disabled=b||!canSerial;}
+setBusy(false);
+
+async function pickPort(){
+  try{
+    if(port) return port;
+    port=await navigator.serial.requestPort({});
+    return port;
+  }catch(e){
+    if(e&&e.name==='SecurityError'){
+      $('warn').style.display='block';
+      $('warn').textContent='這個頁面目前被嵌在框架裡，瀏覽器不允許存取序列埠。請按右上角「在新分頁開啟」，或改用下載的 HTML 檔直接在 Chrome / Edge 開啟。';
+    }
+    throw e;
+  }
+}
+async function releasePort(){
+  monOn=false;
+  if(curTransport){try{await curTransport.disconnect()}catch(e){}curTransport=null}
+  if(monReader){try{await monReader.cancel()}catch(e){}try{monReader.releaseLock()}catch(e){}monReader=null}
+  if(port){try{if(port.readable&&port.readable.locked===false)await port.readable.cancel()}catch(e){}
+    try{await port.close()}catch(e){}}
+  $('mon').textContent='開啟監看';
+}
+const OPEN_HINT='序列埠打不開：可能被其他程式占用（Arduino IDE 的序列埠監控視窗、另一個燒錄分頁、CH340 工具）。請關掉它們，或把 USB 拔掉再插回，然後再按一次。';
+function isOpenErr(e){return e&&(e.name==='NetworkError'||e.name==='InvalidStateError'||/open serial port|already open/i.test(e.message||''))}
+async function closeMon(){monOn=false;if(monReader){try{await monReader.cancel()}catch(e){}monReader=null}try{await port.close()}catch(e){}$('mon').textContent='開啟監看'}
+
+// 以 115200 開啟序列埠讀取，不讓 DTR/RTS 把板子卡在重置或下載模式
+async function openMon(resetFirst){
+  if(!port.readable) await port.open({baudRate:115200});
+  await port.setSignals({dataTerminalReady:false,requestToSend:false});
+  if(resetFirst){await port.setSignals({requestToSend:true});await sleep(120);await port.setSignals({requestToSend:false});}
+  monOn=true;$('mon').textContent='關閉監看';
+  const dec=new TextDecoder();let line='';
+  (async()=>{
+    while(monOn&&port.readable){
+      monReader=port.readable.getReader();
+      try{for(;;){const {value,done:d}=await monReader.read();if(d)break;const t=dec.decode(value,{stream:true});log(t);line+=t;let i;while((i=line.indexOf('\n'))>=0){onLine(line.slice(0,i).trim());line=line.slice(i+1)}}}
+      catch(e){}finally{try{monReader.releaseLock()}catch(e){}}
+    }
+  })();
+}
+let waiter=null;
+function onLine(l){const m=l.match(/PHYBLE GROUP=(\d+)(?: MODE=(\d+))? NAME=(\S+)/);if(m&&waiter)waiter([m[0],m[1],m[3],m[2]]);}
+function waitInfo(ms){return new Promise(res=>{const t=setTimeout(()=>{waiter=null;res(null)},ms);waiter=m=>{clearTimeout(t);waiter=null;res(m)}})}
+async function writeLine(s){const w=port.writable.getWriter();await w.write(new TextEncoder().encode(s+'\n'));w.releaseLock()}
+
+function finish(m,g,md){
+  if(m&&parseInt(m[1])===g&&(!m[3]||parseInt(m[3])===md)){say(`完成！藍牙名稱 ${m[2]}${MODES[md]?'，起始感測器：'+MODES[md].name:''}。可以拔下這塊板子了。`,'ok');done.add(g);
+    if($('auto').checked&&g<99)group=g+1;save();render();}
+  else if(FW&&FW.id==='__custom'){say('燒錄完成（自己的韌體，不檢查組別回報）。','ok');done.add(g);save();render();}
+  else say(`燒錄完成，但沒讀到板子回報的名稱。按板子 EN 鍵重開，展開下方監看確認是否顯示 PHY-G${pad(g)}。`,'bad');
+}
+
+$('flash').onclick=async()=>{
+  const g=group,md=mode;setBusy(true);prog(0);logEl.textContent='';
+  try{
+    await pickPort();await releasePort();
+    say('連線到 ESP32…（若一直連不上，按住 BOOT 鍵）');
+    const term={clean(){},writeLine(d){log(d+'\n')},write(d){log(d)}};
+    const transport=new Esptool.Transport(port,true);curTransport=transport;
+    const loader=new Esptool.ESPLoader({transport,baudrate:460800,terminal:term,romBaudrate:115200});
+    const chip=await loader.main();
+    const fam=(loader.chip&&loader.chip.CHIP_NAME)||'';
+    log('晶片系列：'+fam+'（'+chip+'）\n');
+    if(fam?fam!=='ESP32':/^ESP32-(S|C|H|P|E)\d/i.test(chip)) throw new Error('偵測到的晶片是 '+chip+'，本韌體只適用 ESP32（原版，例如 ESP32-D0WD、WROOM-32）。');
+    if(!FW)throw new Error('還沒有選韌體');
+    say('下載韌體檔…');
+    const files=[];
+    for(const p of FW.parts)files.push({data:await fetchPart(p),address:hex(p.addr)});
+    if(FW.nvs){const kv=[[FW.nvs.group||'group',g]];if(FW.nvs.mode&&MODES.length>1)kv.push([FW.nvs.mode,md]);
+      files.push({data:makeNvsU8s(FW.nvs.namespace||'phyble',kv,hex(FW.nvs.size)),address:hex(FW.nvs.addr)});}
+    files.sort((a,b)=>a.address-b.address);
+    const total=files.reduce((s,f)=>s+f.data.length,0);const before=[0];files.forEach((f,i)=>before.push(before[i]+f.data.length));
+    say(`寫入第 ${pad(g)} 組韌體中…`);
+    await loader.writeFlash({fileArray:files,flashMode:'keep',flashFreq:'keep',flashSize:'keep',eraseAll:false,compress:true,
+      reportProgress:(i,w,t)=>prog((before[i]+w*files[i].data.length/t)/total)});
+    prog(1);say('寫入完成，重新開機確認中…');
+    await loader.after('hard_reset');
+    await transport.disconnect();curTransport=null;
+    await sleep(200);
+    await openMon(true);
+    finish(await waitInfo(6000),g,md);
+  }catch(e){
+    await releasePort();
+    if(e&&e.name==='NotFoundError'){say('沒有選擇序列埠。');}
+    else if(isOpenErr(e)){say(OPEN_HINT,'bad');log('\n[錯誤] '+(e&&e.message||e)+'\n');$('det').open=true;port=null;}
+    else{say('失敗：'+(e&&e.message||e)+'。若一直連不上：按住 BOOT 鍵再按燒錄，連上後放開。','bad');log('\n[錯誤] '+(e&&e.stack||e)+'\n');$('det').open=true;}
+  }finally{setBusy(false)}
+};
+
+$('setonly').onclick=async()=>{
+  const g=group,md=mode;setBusy(true);prog(0);
+  try{
+    await pickPort();
+    if(!monOn) await openMon(false);
+    say(`寫入組別 ${pad(g)}${MODES[md]?'、感測器 '+MODES[md].name:''}…`);
+    await sleep(300);
+    const w=waitInfo(7000);
+    await writeLine(MODES.length>1?'SET '+g+' '+md:'G '+g);
+    let r=await w;
+    if(!r){const w2=waitInfo(5000);await writeLine('G '+g);r=await w2;}
+    finish(r,g,md);prog(1);
+  }catch(e){
+    if(e&&e.name==='NotFoundError'){say('沒有選擇序列埠。');}
+    else if(isOpenErr(e)){await releasePort();port=null;say(OPEN_HINT,'bad');}
+    else{say('失敗：'+(e&&e.message||e)+'。板子上若還不是本程式，請改用「燒錄韌體＋設定組別」。','bad');$('det').open=true;}
+  }finally{setBusy(false)}
+};
+
+$('mon').onclick=async()=>{try{await pickPort();if(monOn)await closeMon();else{$('det').open=true;await openMon(false);await writeLine('?')}}catch(e){if(isOpenErr(e)){await releasePort();port=null;say(OPEN_HINT,'bad')}else if(e&&e.name!=='NotFoundError')say('無法開啟序列埠：'+e.message,'bad')}};
+$('send').onclick=async()=>{const v=$('cmd').value.trim();if(!v)return;try{if(!monOn){await pickPort();await openMon(false)}await writeLine(v);$('cmd').value=''}catch(e){say('送出失敗：'+e.message,'bad')}};
+$('cmd').addEventListener('keydown',e=>{if(e.key==='Enter')$('send').click()});
+if(canSerial)navigator.serial.addEventListener('disconnect',e=>{if(e.target===port){monOn=false;port=null;$('mon').textContent='開啟監看'}});
+render();loadManifest();
+}
+</script>
+</body>
+</html>
