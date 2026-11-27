@@ -35,7 +35,7 @@
 #include <DallasTemperature.h>
 
 // ---------- 韌體版本（燒錄站「查看板子資訊」用來比對） ----------
-#define FW_VERSION "multi-2026.11.27-2"
+#define FW_VERSION "multi-2026.11.27-3"
 
 // ---------- 腳位 ----------
 #define LED_PIN    2
@@ -292,8 +292,11 @@ void addModeSelectorView(PhyphoxBleExperiment &exp) {
   // 用「數字輸入」而非下拉選單：下拉選單要 phyphox 1.2.0 以上才支援，數字輸入所有版本都能用
   static PhyphoxBleExperiment::InfoField list;
   list.setInfo("輸入感測器編號：1 溫度｜2 光閘計時｜3 轉速｜4 電壓電流｜5 馬達特性");
+  // phyphox 函式庫限制每段說明最多 191 bytes（中文字 3 bytes），所以分成兩段
   static PhyphoxBleExperiment::InfoField info;
-  info.setInfo("輸入編號後按上方 ▶ 開始，ESP32 會儲存並自動重開（約 3 秒，藍燈會先閃出編號）。接著回到 phyphox 首頁，重新加入藍牙實驗，選同一個 PHY-G 名稱。也可以長按板子上的 BOOT 鍵 1 秒切到下一個感測器。");
+  info.setInfo("輸入編號後按上方 ▶，板子會閃出編號並自動重開（約 3 秒）。回 phyphox 首頁重新加入同一個 PHY-G。");
+  static PhyphoxBleExperiment::InfoField info2;
+  info2.setInfo("沒有 iPad 時：長按板子上的 BOOT 鍵 1 秒，切到下一個感測器。");
   static PhyphoxBleExperiment::Edit dd;
   dd.setLabel("感測器編號");
   dd.setDefault(modeNo);
@@ -306,6 +309,7 @@ void addModeSelectorView(PhyphoxBleExperiment &exp) {
   v.addElement(list);
   v.addElement(dd);
   v.addElement(info);
+  v.addElement(info2);
   v.addElement(pins);
   exp.addView(v);
 }

@@ -220,7 +220,7 @@ figcaption{font-size:14px;color:var(--mute);margin-top:6px;text-align:center}
         <li><b>滑到最後一頁「換感測器」</b><p>實驗上方的分頁列最右邊。</p></li>
         <li><b>在「感測器編號」輸入這堂課的編號</b><p>1 溫度、2 光閘計時、3 轉速、4 電壓電流、5 馬達特性。</p></li>
         <li><b>按上方 ▶</b><p>板子收到後藍燈會閃出新編號，接著自動重開（約 3 秒）；phyphox 會顯示連線中斷，這是正常的。藍燈若一直恆亮沒有閃，代表板子沒收到，請看下方「沒有 iPad 也能換」。</p></li>
-        <li><b>回到 phyphox 首頁，用 ＋ 重新加入同一個 PHY-Gxx</b><p>新的實驗標題會是新的感測器，例如「光閘計時 PHY-G03」。</p></li>
+        <li><b>回到 phyphox 首頁，用 ＋ 重新加入同一個 PHY-Gxx</b><p>新的實驗標題會是新的感測器，例如「光閘計時 PHY-G03」。板子重開時 phyphox 可能跳出「請選擇一個設備／正在掃描」，按「取消」即可。</p></li>
       </ol>
       <p class="tip">選好的感測器會記在板子裡，拔電後也不會消失；下次上課同一個實驗直接用就好。</p>
       <h3>沒有 iPad 也能換：長按 BOOT 鍵</h3>
@@ -232,7 +232,8 @@ figcaption{font-size:14px;color:var(--mute);margin-top:6px;text-align:center}
         <div class="tabs"><span>溫度</span><span class="on">換感測器</span></div>
         <div class="small" style="padding-top:12px">輸入感測器編號：1 溫度｜2 光閘計時｜3 轉速｜4 電壓電流｜5 馬達特性</div>
         <div class="dd ring"><span>感測器編號</span><b>2</b></div>
-        <div class="small">輸入編號後按上方 ▶ 開始，ESP32 會儲存並自動重開（約 3 秒，藍燈會先閃出編號）。接著回到 phyphox 首頁，重新加入藍牙實驗，選同一個 PHY-G 名稱。</div>
+        <div class="small">輸入編號後按上方 ▶，板子會閃出編號並自動重開（約 3 秒）。回 phyphox 首頁重新加入同一個 PHY-G。</div>
+        <div class="small">沒有 iPad 時：長按板子上的 BOOT 鍵 1 秒，切到下一個感測器。</div>
       </div></div>
       <figcaption>「換感測器」分頁：輸入編號後按 ▶（示意圖）</figcaption>
     </figure>
