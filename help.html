@@ -170,11 +170,18 @@ figcaption{font-size:14px;color:var(--mute);margin-top:6px;text-align:center}
     <div>
       <h3 style="margin-top:0">第一次：用 USB 燒錄並填 Wi-Fi</h3>
       <ol class="steps">
-        <li><b>在燒錄站展開「無線更新用 Wi-Fi」</b><p>填學校 Wi-Fi 的名稱和密碼；可再填第二組（例如老師手機熱點）當備用。勾選「記在這台電腦」，之後燒其他板子不用再輸入。</p></li>
+        <li><b>在燒錄站展開「無線更新用 Wi-Fi」</b><p>第 1 組填學校 Wi-Fi（一般密碼登入的話）；第 2 組已預設為全班共用熱點 <code>PHYBLE</code> / <code>phyble2026</code>。勾選「記在這台電腦」，之後燒其他板子不用再輸入。</p></li>
         <li><b>照平常方式按「燒錄韌體＋設定組別」</b><p>Wi-Fi 會和組別、感測器一起寫進板子。已燒過新版的板子，也可以按「只改組別／感測器」補寫 Wi-Fi。</p></li>
         <li><b>按「查看板子資訊」確認</b><p>會顯示「Wi-Fi 已設定 n 組，可無線更新」。</p></li>
       </ol>
       <p class="warn">只支援 2.4 GHz、輸入密碼就能連的 Wi-Fi。學校網路若要網頁登入或帳號驗證，請改用手機熱點（iPhone 請打開「最大化相容性」）。</p>
+      <h3>共用熱點 PHYBLE（任何一支手機都能當更新用 Wi-Fi）</h3>
+      <ol class="steps">
+        <li><b>iPhone：改名稱</b><p>「設定 → 一般 → 關於本機 → 名稱」改成 <code>PHYBLE</code>（全大寫）。</p></li>
+        <li><b>iPhone：改密碼並開熱點</b><p>「設定 → 個人熱點」密碼改成 <code>phyble2026</code>，打開「允許其他人加入」和「最大化相容性」，畫面保持開著。</p></li>
+        <li><b>Android</b><p>「設定 → 網路 → 熱點」把網路名稱改成 <code>PHYBLE</code>、密碼 <code>phyble2026</code>，頻段選 2.4 GHz。</p></li>
+        <li><b>用完改回原本的名稱</b><p>熱點一次能連的裝置有限（約 5～10 台），20 塊板子可分 3～4 批更新；更新完的板子會自動離線。</p></li>
+      </ol>
       <h3>之後：不用接電腦就能更新</h3>
       <ol class="steps">
         <li><b>任選一種方式開始</b><p>在 phyphox「換感測器」選單選 <b>↻ 無線更新韌體</b> 再按 ▶；或按住 BOOT 鍵 5 秒，藍燈開始快閃時放開。</p></li>
