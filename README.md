@@ -81,3 +81,16 @@ Serial.printf("PHYBLE GROUP=%02u NAME=%s\n", groupNo, bleName);
 ## 三、臨時測試
 
 網頁上「載入自己的 .bin」可以直接選電腦裡的 `.ino.merged.bin`（從 0x0 寫入）或 `.ino.bin`（寫入 0x10000），不用先上傳到網站。
+
+## 四、無線更新（Wi-Fi OTA）
+
+韌體 `multi-2026.11.27-6` 起支援無線更新（分區表改為 min_spiffs，第一次要用 USB 燒一次）。
+
+- 板子會讀取 `firmware/phyble-multi/ota.json`：
+  ```json
+  { "fwid": "multi-2026.11.27-6", "file": "phyble-multi/app.bin", "size": 1809232, "md5": "..." }
+  ```
+- `fwid` 和板子目前版本不同才會更新；下載後用 `md5` 檢查，錯了就不寫入、保留舊版。
+- 發佈新版：放上新的 `app.bin`，同時更新 `ota.json` 的 `fwid`、`size`、`md5`（以及 `manifest.json` 的 `fwid`）。
+- 觸發：phyphox「換感測器」選「↻ 無線更新韌體」、按住 BOOT 5 秒放開，或序列埠輸入 `UPDATE`。
+- Wi-Fi 由燒錄站寫入 NVS（`wssid`/`wpass`、`wssid2`/`wpass2`），或序列埠 `WSSID=…`、`WPASS=…`。

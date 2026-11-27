@@ -65,6 +65,14 @@ button:focus-visible,input:focus-visible{outline:3px solid #2b7bff;outline-offse
 .infocard .st.ok{border-color:var(--ok);color:var(--ok)}.infocard .st.old{border-color:var(--acc);color:#b4520f}
 .infocard .st button{height:40px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:700 14px "Figtree","Noto Sans TC",sans-serif;padding:0 12px;cursor:pointer}
 @media(max-width:600px){.infocard{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.wifi{margin-top:22px;border:1px solid var(--line);border-radius:14px;padding:12px 16px}
+.wifi summary{cursor:pointer;min-height:36px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.wifi summary span{color:var(--mute);font-size:14px}
+.wgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;margin:12px 0 6px}
+.wgrid label{display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--mute)}
+.wgrid input{height:44px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:16px "JetBrains Mono","Noto Sans TC",monospace;padding:0 12px}
+.wnote{color:var(--mute);font-size:14px;margin:6px 0 0}
+@media(max-width:600px){.wgrid{grid-template-columns:minmax(0,1fr)}}
 .status{margin-top:22px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px 20px}
 .msg{font-weight:700;font-size:18px;margin:0 0 10px}
 .msg.ok{color:var(--ok)}.msg.bad{color:var(--bad)}
@@ -133,6 +141,19 @@ td:first-child{font-family:"JetBrains Mono",monospace;white-space:nowrap}
   <div class="modes" id="modes" role="radiogroup" aria-label="起始感測器"></div>
   <div class="wire" id="wire"></div>
   </div>
+
+  <details class="wifi" id="wifibox">
+    <summary><b>無線更新用 Wi-Fi</b>　<span id="wifisum">未設定</span></summary>
+    <div class="wgrid">
+      <label>Wi-Fi 名稱 1<input id="ws1" autocomplete="off" spellcheck="false"></label>
+      <label>密碼 1<input id="wp1" type="password" autocomplete="off"></label>
+      <label>Wi-Fi 名稱 2（例如老師手機熱點）<input id="ws2" autocomplete="off" spellcheck="false"></label>
+      <label>密碼 2<input id="wp2" type="password" autocomplete="off"></label>
+    </div>
+    <label class="opt"><input type="checkbox" id="wshow">顯示密碼</label>
+    <label class="opt"><input type="checkbox" id="wkeep" checked>記在這台電腦（下次不用再輸入）</label>
+    <p class="wnote">燒錄或「只改組別／感測器」時會一起寫進板子。只支援 2.4 GHz、輸入密碼就能連的 Wi-Fi；學校網路若要網頁登入或帳號驗證，請用手機熱點。設定好後，學生在 phyphox「換感測器」選「↻ 無線更新韌體」，或按住板子 BOOT 鍵 5 秒（藍燈快閃）再放開，板子就會自己上網更新。</p>
+  </details>
 
   <div class="status">
     <div class="infocard" id="infocard" hidden></div>
@@ -302,7 +323,7 @@ async function openMon(resetFirst){
   })();
 }
 let waiter=null;
-function onLine(l){const m=l.match(/PHYBLE GROUP=(\d+)(?: MODE=(\d+))? NAME=(\S+)(?: FW=(\S+))?/);if(m&&waiter)waiter([m[0],m[1],m[3],m[2],m[4]]);}
+function onLine(l){const m=l.match(/PHYBLE GROUP=(\d+)(?: MODE=(\d+))? NAME=(\S+)(?: FW=(\S+))?(?: WIFI=(\d+))?/);if(m&&waiter)waiter([m[0],m[1],m[3],m[2],m[4],m[5]]);if(/^OTA_/.test(l))say(l.replace(/^OTA_\w+\s*/,'無線更新：'))}
 function waitInfo(ms){return new Promise(res=>{const t=setTimeout(()=>{waiter=null;res(null)},ms);waiter=m=>{clearTimeout(t);waiter=null;res(m)}})}
 async function writeLine(s){const w=port.writable.getWriter();await w.write(new TextEncoder().encode(s+'\n'));w.releaseLock()}
 
@@ -329,7 +350,7 @@ $('flash').onclick=async()=>{
     say('下載韌體檔…');
     const files=[];
     for(const p of FW.parts)files.push({data:await fetchPart(p),address:hex(p.addr)});
-    if(FW.nvs){const kv=[[FW.nvs.group||'group',g]];if(FW.nvs.mode&&MODES.length>1)kv.push([FW.nvs.mode,md]);
+    if(FW.nvs){const kv=[[FW.nvs.group||'group',g]];if(FW.nvs.mode&&MODES.length>1)kv.push([FW.nvs.mode,md]);if(FW.wifi)kv.push(...wifiItems());
       files.push({data:makeNvsU8s(FW.nvs.namespace||'phyble',kv,hex(FW.nvs.size)),address:hex(FW.nvs.addr)});}
     files.sort((a,b)=>a.address-b.address);
     const total=files.reduce((s,f)=>s+f.data.length,0);const before=[0];files.forEach((f,i)=>before.push(before[i]+f.data.length));
@@ -358,6 +379,7 @@ $('setonly').onclick=async()=>{
     say(`寫入組別 ${pad(g)}${MODES[md]?'、感測器 '+MODES[md].name:''}…`);
     await sleep(300);
     const w=waitInfo(7000);
+    if(FW&&FW.wifi){await sendWifi();await sleep(200)}
     await writeLine(MODES.length>1?'SET '+g+' '+md:'G '+g);
     let r=await w;
     if(!r){const w2=waitInfo(5000);await writeLine('G '+g);r=await w2;}
@@ -369,6 +391,19 @@ $('setonly').onclick=async()=>{
   }finally{setBusy(false)}
 };
 
+
+// ---- 無線更新用 Wi-Fi ----
+const WF=['ws1','wp1','ws2','wp2'];
+try{const w=JSON.parse(localStorage.getItem('phyble-wifi')||'{}');WF.forEach(k=>{if(w[k])$(k).value=w[k]});if(localStorage.getItem('phyble-wifikeep')==='0')$('wkeep').checked=false}catch(e){}
+function wifiItems(){const o=[];if($('ws1').value.trim())o.push(['wssid',$('ws1').value.trim()],['wpass',$('wp1').value]);if($('ws2').value.trim())o.push(['wssid2',$('ws2').value.trim()],['wpass2',$('wp2').value]);return o}
+function wifiSave(){
+  const n=wifiItems().length/2;$('wifisum').textContent=n?`已填 ${n} 組，燒錄時會寫入`:'未設定（選填）';
+  try{if($('wkeep').checked){const w={};WF.forEach(k=>w[k]=$(k).value);localStorage.setItem('phyble-wifi',JSON.stringify(w));localStorage.setItem('phyble-wifikeep','1')}else{localStorage.removeItem('phyble-wifi');localStorage.setItem('phyble-wifikeep','0')}}catch(e){}
+}
+WF.forEach(k=>$(k).addEventListener('input',wifiSave));$('wkeep').addEventListener('change',wifiSave);
+$('wshow').addEventListener('change',e=>{['wp1','wp2'].forEach(k=>$(k).type=e.target.checked?'text':'password')});
+wifiSave();
+async function sendWifi(){for(const [k,v] of wifiItems()){await writeLine(k.toUpperCase()+'='+v);await sleep(150)}}
 const MODE_FB=['','溫度','光閘計時','轉速','電壓電流','馬達特性'];
 const escH=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function showInfo(m){
@@ -385,7 +420,7 @@ function showInfo(m){
   else st='和燒錄站上的版本（'+latest+'）不同，建議更新。';
   box.innerHTML=`<div><small>藍牙名稱</small><b>${escH(m[2])}</b></div><div><small>組別</small><b>${g?escH(m[1]):'未設定'}</b></div>
     <div><small>目前感測器</small><b>${md?escH(md+' '+mname):'—'}</b></div><div><small>韌體版本</small><b>${escH(fw||'（無）')}</b></div>
-    <div class="st ${cls}"><span>${st}</span>${cls==='old'&&g?`<button id="useinfo">用這塊板子的組別${md?'與感測器':''}重燒</button>`:''}</div>`;
+    <div class="st ${cls}"><span>${st}</span><span style="font-weight:500;color:var(--mute)">${m[5]===undefined?'':(+m[5]?'Wi-Fi 已設定 '+m[5]+' 組，可無線更新':'Wi-Fi 未設定，無法無線更新')}</span>${cls==='old'&&g?`<button id="useinfo">用這塊板子的組別${md?'與感測器':''}重燒</button>`:''}</div>`;
   box.hidden=false;
   say(cls==='ok'?'讀取完成：這塊板子是最新版。':'讀取完成。',cls==='ok'?'ok':'');
   const u=$('useinfo');if(u)u.onclick=()=>{if(g>=1&&g<=99)setGroup(g);if(md&&MODES[md]){mode=md;save();renderModes()}say(`已帶入第 ${pad(g)} 組${md?'、'+mname:''}，按「燒錄韌體＋設定組別」更新。`)};

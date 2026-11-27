@@ -21,7 +21,8 @@
     ?                 顯示目前設定
     LED               重新閃出組別
 
-  BOOT 鍵：長按 1 秒切到下一個感測器
+  BOOT 鍵：按住 1 秒（藍燈恆亮）放開 = 切到下一個感測器；按住 5 秒（藍燈快閃）放開 = 無線更新
+  無線更新：phyphox 選單「↻ 無線更新韌體」、BOOT 按住 5 秒、或序列埠 UPDATE；Wi-Fi 由燒錄站設定（WSSID=、WPASS=）
   換感測器燈號：呼吸燈 3 次 → 長閃 n 下（新編號）→ 恆亮 1 秒 → 重開
   板載 LED（GPIO2）：開機閃組別（長閃 = 十位、短閃 = 個位；未設定 = 快閃 10 下）
                      之後每秒短亮 = 等待藍牙連線；恆亮 = phyphox 已連上
@@ -34,9 +35,20 @@
 #include <Wire.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <HTTPClient.h>
+#include <Update.h>
+#include <time.h>
+#include <sys/time.h>
+#include "cert_bundle.h"
+
+// 無線更新：韌體資訊放在 GitHub 網站（可用序列埠 OTAURL=... 改）
+#define OTA_BASE_DEFAULT "https://yuming14122000-dotcom.github.io/phyble/firmware/"
+#define OTA_INFO_FILE    "phyble-multi/ota.json"
 
 // ---------- 韌體版本（燒錄站「查看板子資訊」用來比對） ----------
-#define FW_VERSION "multi-2026.11.27-5"
+#define FW_VERSION "multi-2026.11.27-6"
 
 // ---------- 腳位 ----------
 #define LED_PIN    2
@@ -54,6 +66,9 @@ const char *const MODE_NAMES[] = {"", "溫度", "光閘計時", "轉速", "電�
 const char *const MODE_LABELS[] = {"1 溫度 (DS18B20)", "2 光閘計時 (XD-51)", "3 轉速 (霍爾)",
                                    "4 電壓電流 (INA219)", "5 馬達特性 (L9110S)"};
 const float MODE_VALUES[] = {1, 2, 3, 4, 5};
+const char *const MENU_LABELS[] = {"1 溫度 (DS18B20)", "2 光閘計時 (XD-51)", "3 轉速 (霍爾)",
+                                   "4 電壓電流 (INA219)", "5 馬達特性 (L9110S)", "↻ 無線更新韌體"};
+const float MENU_VALUES[] = {1, 2, 3, 4, 5, 99};
 
 static const char *NVS_NS = "phyble";
 Preferences prefs;
@@ -73,6 +88,18 @@ void nvsPutU8(const char *key, uint8_t v) {
   prefs.putUChar(key, v);
   prefs.end();
 }
+String nvsGetStr(const char *key) {
+  prefs.begin(NVS_NS, true);
+  String v = prefs.isKey(key) ? prefs.getString(key, "") : String("");
+  prefs.end();
+  return v;
+}
+void nvsPutStr(const char *key, const String &v) {
+  prefs.begin(NVS_NS, false);
+  if (v.length()) prefs.putString(key, v); else prefs.remove(key);
+  prefs.end();
+}
+int wifiCount() { return (nvsGetStr("wssid").length() ? 1 : 0) + (nvsGetStr("wssid2").length() ? 1 : 0); }
 void restartSoon(const char *why) {
   Serial.printf("%s，重新開機中…\n", why);
   Serial.flush();
@@ -85,6 +112,7 @@ uint16_t ledSeq[64];
 uint8_t ledSeqLen = 0, ledSeqPos = 0;
 uint32_t ledStepStart = 0;
 bool ledSeqActive = false, lastConnected = false;
+volatile uint32_t bootHeldMs = 0;   // BOOT 鍵目前按住多久（給燈號用）
 
 void ledPush(uint16_t onMs, uint16_t offMs) {
   if (ledSeqLen + 2 <= sizeof(ledSeq) / sizeof(ledSeq[0])) { ledSeq[ledSeqLen++] = onMs; ledSeq[ledSeqLen++] = offMs; }
@@ -106,6 +134,8 @@ void ledShowGroup() {
 bool bleConnected() { return PhyphoxBLE::currentConnections > 0; }
 void ledUpdate() {
   uint32_t now = millis();
+  if (bootHeldMs >= 5000) { digitalWrite(LED_PIN, (now / 80) % 2); return; }   // 快閃：放開就無線更新
+  if (bootHeldMs >= 1000) { digitalWrite(LED_PIN, HIGH); return; }             // 恆亮：放開就換感測器
   if (ledSeqActive) {
     if (now - ledStepStart >= ledSeq[ledSeqPos]) {
       ledStepStart = now;
@@ -141,19 +171,25 @@ void blinkCount(int n) {
   digitalWrite(LED_PIN, LOW);
 }
 
-// ---------- BOOT 鍵（GPIO0）：長按 1 秒切到下一個感測器 ----------
+// ---------- BOOT 鍵（GPIO0） ----------
+//   按住 1 秒 → 藍燈恆亮，放開 = 切到下一個感測器
+//   按住 5 秒 → 藍燈快閃，放開 = 無線更新韌體
+void requestOta(const char *by);
 void pollBootButton() {
   static uint32_t downAt = 0;
   bool down = digitalRead(0) == LOW;
-  if (down && !downAt) downAt = millis() | 1;
-  if (!down) { downAt = 0; return; }
-  if (millis() - downAt >= 1000) {
+  uint32_t now = millis();
+  if (down) { if (!downAt) downAt = now | 1; bootHeldMs = now - downAt; return; }
+  if (!downAt) return;
+  uint32_t held = now - downAt;
+  downAt = 0; bootHeldMs = 0;
+  if (held >= 5000) { requestOta("BOOT 鍵"); return; }
+  if (held >= 1000) {
     int m = modeNo % M_COUNT + 1;
     if (modeNo == M_MOTOR) motorSet(0);
     nvsPutU8("mode", m);
     Serial.printf("BOOT 鍵切換模式 → %d %s\n", m, MODE_NAMES[m]);
     blinkCount(m);
-    while (digitalRead(0) == LOW) delay(10);   // 等放開，避免重開後又進下載模式
     restartSoon("已儲存模式");
   }
 }
@@ -313,7 +349,7 @@ void addModeSelectorView(PhyphoxBleExperiment &exp) {
   info2.setInfo("沒有 iPad 時：長按板子上的 BOOT 鍵 1 秒，切到下一個感測器。");
   static PhyphoxBleExperiment::Dropdown dd;
   dd.setLabel("感測器");
-  dd.setOptions(M_COUNT, MODE_LABELS, MODE_VALUES);
+  dd.setOptions(M_COUNT + 1, MENU_LABELS, MENU_VALUES);
   dd.setDefault(modeNo);
   dd.setChannel(1);
   static PhyphoxBleExperiment::InfoField pins;
@@ -448,7 +484,7 @@ void buildExperiment() {
 // ---------- 序列埠 ----------
 void printInfo() {
   // 給燒錄網頁解析用，格式請勿更改
-  Serial.printf("PHYBLE GROUP=%02u MODE=%u NAME=%s FW=%s\n", groupNo, modeNo, bleName, FW_VERSION);
+  Serial.printf("PHYBLE GROUP=%02u MODE=%u NAME=%s FW=%s WIFI=%d\n", groupNo, modeNo, bleName, FW_VERSION, wifiCount());
   Serial.printf("模式 %u：%s\n", modeNo, MODE_NAMES[modeNo]);
   if (groupNo == 0) Serial.println("尚未設定組別。輸入 G 1 ~ G 99 設定（例如 G 3）。");
 }
@@ -465,6 +501,21 @@ void handleCommand(String cmd) {
   if (!cmd.length()) return;
   String up = cmd; up.toUpperCase();
   if (up == "?" || up == "INFO") { printInfo(); return; }
+  // Wi-Fi 設定（值保留大小寫與空白）：WSSID=名稱、WPASS=密碼、WSSID2=、WPASS2=（第二組，例如手機熱點）、OTAURL=
+  const char *rawKeys[][2] = {{"WSSID2=", "wssid2"}, {"WPASS2=", "wpass2"}, {"WSSID=", "wssid"}, {"WPASS=", "wpass"}, {"OTAURL=", "otaurl"}};
+  for (auto &k : rawKeys) {
+    if (up.startsWith(k[0])) {
+      String v = cmd.substring(strlen(k[0]));
+      nvsPutStr(k[1], v);
+      Serial.printf("OK %s 已%s\n", k[1], v.length() ? "儲存" : "清除");
+      return;
+    }
+  }
+  if (up == "WIFI?") {
+    Serial.printf("Wi-Fi 1：%s\nWi-Fi 2：%s\n", nvsGetStr("wssid").c_str(), nvsGetStr("wssid2").c_str());
+    return;
+  }
+  if (up == "UPDATE") { requestOta("序列埠"); return; }
   if (up == "LED") { Serial.printf("LED 閃出組別 %02u\n", groupNo); ledShowGroup(); return; }
   if (up.startsWith("SET")) {
     String rest = up.substring(3); rest.trim(); rest.replace(",", " ");
@@ -498,15 +549,128 @@ void handleCommand(String cmd) {
     Serial.println(isMode ? "ERR 模式需為 1~5" : "ERR 組別需為 1~99");
     return;
   }
-  Serial.println("ERR 可用指令：G <1-99>、M <1-5>、SET <組別> <模式>、?、LED");
+  Serial.println("ERR 可用指令：G <1-99>、M <1-5>、SET <組別> <模式>、?、LED、WSSID=、WPASS=、WIFI?、UPDATE");
 }
 
 void pollSerial() {
   while (Serial.available()) {
     char c = (char)Serial.read();
     if (c == '\r' || c == '\n') { handleCommand(serialLine); serialLine = ""; }
-    else if (serialLine.length() < 32) serialLine += c;
+    else if (serialLine.length() < 160) serialLine += c;
   }
+}
+
+// ---------- 無線更新（Wi-Fi OTA） ----------
+// 觸發方式：phyphox 選單「↻ 無線更新韌體」、BOOT 鍵按住 5 秒、序列埠 UPDATE
+// 做法：先在 NVS 記一個旗標並重開，開機時不啟動藍牙、專心做更新，記憶體比較充足
+volatile uint8_t otaLed = 0;   // 1 = 下載中快閃，2 = 恆亮，0 = 暗
+void otaLedTask(void *) {
+  bool on = false;
+  for (;;) {
+    if (otaLed == 1) { on = !on; digitalWrite(LED_PIN, on); vTaskDelay(pdMS_TO_TICKS(120)); }
+    else { digitalWrite(LED_PIN, otaLed == 2); vTaskDelay(pdMS_TO_TICKS(50)); }
+  }
+}
+void requestOta(const char *by) {
+  if (wifiCount() == 0) {
+    Serial.println("ERR 尚未設定 Wi-Fi，無法無線更新。請用燒錄站設定 Wi-Fi。");
+    for (int i = 0; i < 3; i++) { digitalWrite(LED_PIN, HIGH); delay(100); digitalWrite(LED_PIN, LOW); delay(100); }
+    return;
+  }
+  if (modeNo == M_MOTOR) motorSet(0);
+  Serial.printf("%s：準備無線更新\n", by);
+  nvsPutU8("ota", 1);
+  restartSoon("進入無線更新");
+}
+bool otaConnect() {
+  const char *keys[2][2] = {{"wssid", "wpass"}, {"wssid2", "wpass2"}};
+  WiFi.mode(WIFI_STA);
+  for (auto &k : keys) {
+    String ssid = nvsGetStr(k[0]), pass = nvsGetStr(k[1]);
+    if (!ssid.length()) continue;
+    Serial.printf("OTA 連線 Wi-Fi「%s」…\n", ssid.c_str());
+    WiFi.begin(ssid.c_str(), pass.c_str());
+    uint32_t t0 = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - t0 < 20000) delay(250);
+    if (WiFi.status() == WL_CONNECTED) { Serial.printf("OTA 已連上，IP %s\n", WiFi.localIP().toString().c_str()); return true; }
+    Serial.println("OTA 連不上這個 Wi-Fi");
+    WiFi.disconnect(true); delay(200);
+  }
+  return false;
+}
+void otaSetClock() {
+  // HTTPS 憑證要有正確日期：先試網路校時，失敗就用韌體編譯日期
+  configTime(8 * 3600, 0, "pool.ntp.org", "time.google.com", "time.cloudflare.com");
+  uint32_t t0 = millis();
+  while (time(nullptr) < 1700000000 && millis() - t0 < 10000) delay(200);
+  if (time(nullptr) < 1700000000) {
+    struct tm tm = {};
+    char mon[4]; int d, y, H, M, S;
+    sscanf(__DATE__, "%3s %d %d", mon, &d, &y); sscanf(__TIME__, "%d:%d:%d", &H, &M, &S);
+    const char *ms = "JanFebMarAprMayJunJulAugSepOctNovDec";
+    tm.tm_mon = (strstr(ms, mon) - ms) / 3; tm.tm_mday = d; tm.tm_year = y - 1900; tm.tm_hour = H; tm.tm_min = M; tm.tm_sec = S;
+    struct timeval tv = {mktime(&tm), 0}; settimeofday(&tv, nullptr);
+    Serial.println("OTA 網路校時失敗，改用韌體編譯日期");
+  }
+}
+String jsonStr(const String &js, const char *key) {
+  int i = js.indexOf(String("\"") + key + "\"");
+  if (i < 0) return "";
+  i = js.indexOf(':', i); if (i < 0) return "";
+  int a = js.indexOf('"', i + 1), c = js.indexOf(',', i + 1), e = js.indexOf('}', i + 1);
+  int end = (c < 0) ? e : (e < 0 ? c : min(c, e));
+  if (a >= 0 && (end < 0 || a < end)) { int b = js.indexOf('"', a + 1); return js.substring(a + 1, b); }
+  String v = js.substring(i + 1, end); v.trim(); return v;
+}
+void otaFinish(bool ok, const char *msg) {
+  Serial.printf("%s %s\n", ok ? "OTA_OK" : "OTA_FAIL", msg);
+  if (ok) { otaLed = 2; delay(2500); }
+  else { otaLed = 0; delay(300); for (int i = 0; i < 5; i++) { otaLed = 2; delay(900); otaLed = 0; delay(400); } }
+  otaLed = 0; delay(100);
+  ESP.restart();
+}
+void runOta() {
+  Serial.printf("OTA 開始，目前版本 %s\n", FW_VERSION);
+  xTaskCreate(otaLedTask, "otaLed", 2048, nullptr, 1, nullptr);
+  otaLed = 1;
+  if (!otaConnect()) otaFinish(false, "連不上 Wi-Fi（檢查名稱、密碼、是否為 2.4GHz）");
+  otaSetClock();
+  String base = nvsGetStr("otaurl"); if (!base.length()) base = OTA_BASE_DEFAULT;
+  WiFiClientSecure client;
+  client.setCACertBundle(ROOT_CA_BUNDLE);
+  client.setTimeout(20);
+  HTTPClient http;
+  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+  http.setTimeout(20000);
+  if (!http.begin(client, base + OTA_INFO_FILE)) otaFinish(false, "網址錯誤");
+  int code = http.GET();
+  if (code != 200) { Serial.printf("OTA 讀取版本資訊失敗 HTTP %d\n", code); http.end(); otaFinish(false, "讀不到版本資訊（網路或憑證問題）"); }
+  String js = http.getString(); http.end();
+  String fwid = jsonStr(js, "fwid"), file = jsonStr(js, "file"), md5 = jsonStr(js, "md5");
+  int size = jsonStr(js, "size").toInt();
+  Serial.printf("OTA 網站上的版本 %s（%d bytes）\n", fwid.c_str(), size);
+  if (!fwid.length() || !file.length() || size <= 0) otaFinish(false, "版本資訊格式錯誤");
+  if (fwid == FW_VERSION) {
+    Serial.println("OTA_LATEST 已是最新版");
+    otaLed = 0; delay(300); for (int i = 0; i < 2; i++) { otaLed = 2; delay(900); otaLed = 0; delay(400); }
+    ESP.restart();
+  }
+  if (!http.begin(client, base + file)) otaFinish(false, "網址錯誤");
+  code = http.GET();
+  if (code != 200) { Serial.printf("OTA 下載失敗 HTTP %d\n", code); http.end(); otaFinish(false, "下載失敗"); }
+  if (!Update.begin(size)) { http.end(); otaFinish(false, "空間不足（需要支援 OTA 的分區）"); }
+  if (md5.length() == 32) Update.setMD5(md5.c_str());
+  Update.onProgress([](size_t done, size_t total) {
+    static int last = -1; int pct = total ? done * 100 / total : 0;
+    if (pct / 10 != last) { last = pct / 10; Serial.printf("OTA_PROGRESS %d%%\n", pct); }
+  });
+  size_t written = Update.writeStream(*http.getStreamPtr());
+  http.end();
+  if (written != (size_t)size || !Update.end(true)) {
+    Serial.printf("OTA 寫入 %u/%d，錯誤：%s\n", (unsigned)written, size, Update.errorString());
+    otaFinish(false, "寫入失敗，板子仍保留舊版");
+  }
+  otaFinish(true, "更新完成，重新開機");
 }
 
 // ---------- 主程式 ----------
@@ -525,6 +689,11 @@ void setup() {
   if (modeNo < 1 || modeNo > M_COUNT) modeNo = M_TEMP;
   pulsesPerRev = nvsGetU8("ppr", 1);
   if (pulsesPerRev < 1 || pulsesPerRev > 12) pulsesPerRev = 1;
+
+  if (nvsGetU8("ota", 0)) {           // 上次要求無線更新：這次開機只做更新
+    nvsPutU8("ota", 0);
+    runOta();
+  }
 
   snprintf(bleName, sizeof(bleName), "PHY-G%02u", groupNo);
   snprintf(expTitle, sizeof(expTitle), "%s %s", MODE_NAMES[modeNo], bleName);
@@ -560,6 +729,7 @@ void handlePhoneInput() {
     last1 = in1; last2 = in2;
   }
   int m = (int)lroundf(in1);
+  if (m == 99 && fabsf(in1 - 99) < 0.01f) { requestOta("iPad"); return; }
   if (m >= 1 && m <= M_COUNT && fabsf(in1 - m) < 0.01f && m != modeNo) {
     if (modeNo == M_MOTOR) motorSet(0);
     nvsPutU8("mode", m);
