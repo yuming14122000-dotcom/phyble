@@ -357,7 +357,6 @@ function drawBattery(g){
 function wireColor(c){return C[c]||c}
 function drawWire(g,pts,color){
   const d=roundPath(pts,10);
-  el('path',{class:'w',d,stroke:'#0003','stroke-width':7,transform:'translate(1.5,2)'},g);
   el('path',{class:'w',d,stroke:wireColor(color),'stroke-width':4.5},g);
   const [x,y]=pts[pts.length-1];el('circle',{cx:x,cy:y,r:4.5,fill:wireColor(color),stroke:'#0006'},g);
   const [x0,y0]=pts[0];el('circle',{cx:x0,cy:y0,r:4.5,fill:wireColor(color),stroke:'#0006'},g);
@@ -437,7 +436,9 @@ function canvasTex(w,h,draw,K){
   const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.anisotropy=8;return t;
 }
 function mat(color,o){return new THREE.MeshStandardMaterial(Object.assign({color,roughness:.55,metalness:0},o||{}))}
-function add(m,list){m.castShadow=true;m.receiveShadow=true;(list||T3.group).add(m);return m}
+// 只有板子本體投影；線材與小零件不投影，避免影子看起來像多一條線
+function add(m,list){m.castShadow=false;m.receiveShadow=false;(list||T3.group).add(m);return m}
+const solid=m=>{m.castShadow=true;return m};
 function box(w,h,d,x,y,z,material,list){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);m.position.set(x,y,z);return add(m,list)}
 function cyl(r,h,x,y,z,material,list,seg){const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,seg||20),material);m.position.set(x,y,z);return add(m,list)}
 function tube(points,radius,material,list,closedEnds){
@@ -519,7 +520,7 @@ function bbTexture(W,H){
 function build3DBase(used){
   const W=40+(COLS-1)*P+40,H=440;
   const side=mat(0xe9e3d6),top=new THREE.MeshStandardMaterial({map:bbTexture(W,H),roughness:.8});
-  box(W,26,H,BX+W/2,-13,BY+H/2,[side,side,top,side,side,side]);
+  solid(box(W,26,H,BX+W/2,-13,BY+H/2,[side,side,top,side,side,side]));
   // ESP32
   const G=espGeom();
   const tex=canvasTex(G.W,G.H,g=>{
@@ -532,7 +533,7 @@ function build3DBase(used){
       g.fillStyle=on?'#ffb347':'#e8e8e8';g.font=(on?'900 ':'500 ')+'11px monospace';g.textAlign=d>0?'left':'right';g.fillText(p[0],x+d*12,y+4)})});
   },4);
   const pcb=mat(0x1b1d20);
-  box(G.W,4,G.H,G.x0+G.W/2,ESPTOP-10,G.y0+G.H/2,[pcb,pcb,new THREE.MeshStandardMaterial({map:tex,roughness:.7}),pcb,pcb,pcb]);
+  solid(box(G.W,4,G.H,G.x0+G.W/2,ESPTOP-10,G.y0+G.H/2,[pcb,pcb,new THREE.MeshStandardMaterial({map:tex,roughness:.7}),pcb,pcb,pcb]));
   // 支腳
   [[8,8],[G.W-8,8],[8,G.H-8],[G.W-8,G.H-8]].forEach(([dx,dz])=>cyl(3,ESPTOP-12-TABLE,G.x0+dx,(ESPTOP-12+TABLE)/2,G.y0+dz,mat(0x333333)));
   // 模組（金屬罩）
@@ -588,7 +589,7 @@ function resistor3D(it,list){
   const [x1,z1]=hole(...it.a),[x2,z2]=hole(...it.b),leg=mat(0xb0b5ba,{metalness:.7,roughness:.3});
   polyTube([[x1,0,z1],[x1,8,z1],[x2,8,z2],[x2,0,z2]],.9,leg,list);
   const len=26,body=new THREE.Group();
-  const b=new THREE.Mesh(new THREE.CylinderGeometry(4.6,4.6,len,20),mat(0xe8cf9c));b.castShadow=true;body.add(b);
+  const b=new THREE.Mesh(new THREE.CylinderGeometry(4.6,4.6,len,20),mat(0xe8cf9c));body.add(b);
   it.bands.concat(['#c9a227']).forEach((c,i)=>{const r=new THREE.Mesh(new THREE.CylinderGeometry(4.9,4.9,2.4,20),mat(new THREE.Color(c).getHex()));r.position.y=-8+i*4.5+(i===3?3:0);body.add(r)});
   body.position.set((x1+x2)/2,8,(z1+z2)/2);body.rotation.z=Math.PI/2;body.rotation.y=-Math.atan2(z2-z1,x2-x1);list.add(body);
 }
@@ -633,7 +634,7 @@ function l9110_3D(list){
     g.textAlign='right';g.fillText('MOTOR B',144,44);g.fillText('MOTOR A',144,154);
     g.fillStyle='#111';g.fillRect(70,120,16,24);g.fillRect(100,120,16,24)},4);
   const s=mat(0x1d4fa3);
-  box(W,2.4,H,LX+W/2,top-10,LY+H/2,[s,s,new THREE.MeshStandardMaterial({map:tex,roughness:.6}),s,s,s],list);
+  solid(box(W,2.4,H,LX+W/2,top-10,LY+H/2,[s,s,new THREE.MeshStandardMaterial({map:tex,roughness:.6}),s,s,s],list));
   [[6,6],[W-6,6],[6,H-6],[W-6,H-6]].forEach(([dx,dz])=>cyl(2.5,top-10-TABLE,LX+dx,(top-10+TABLE)/2,LY+dz,mat(0x333333),list));
   const gold=goldM();LPINS.forEach(n=>{const [x,z]=lpin(n);box(2.6,10,2.6,x,top-4,z,gold,list)});
   box(8,6,LPINS.length*P,LX+10,top-6,LY+30+(LPINS.length-1)*P/2,mat(0x111111),list);
@@ -647,7 +648,7 @@ function l9110_3D(list){
 }
 function battery3D(state,list){
   const x=BTX+85,z=BTY+46;
-  box(170,22,92,x,TABLE+11,z,mat(0x2b2f34),list);
+  solid(box(170,22,92,x,TABLE+11,z,mat(0x2b2f34),list));
   for(let i=0;i<4;i++){const c=new THREE.Mesh(new THREE.CylinderGeometry(7,7,146,18),mat(i%2?0xcc3333:0x3a6fd8));c.rotation.z=Math.PI/2;c.position.set(x,TABLE+24,BTY+17+i*19);add(c,list)}
   const [vx,vz]=lpin('VCC'),[gx,gz]=lpin('GND');
   tube([[BTX+4,TABLE+14,BTY+20],[BTX-40,TABLE+30,BTY-30],[vx-30,20,vz+10],[vx,18,vz],[vx,-4,vz]],2.2,wireMat('red',state),list);
