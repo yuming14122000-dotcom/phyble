@@ -21,7 +21,8 @@
     ?                 顯示目前設定
     LED               重新閃出組別
 
-  BOOT 鍵：長按 1 秒切到下一個感測器（藍燈閃出新編號後重開）
+  BOOT 鍵：長按 1 秒切到下一個感測器
+  換感測器燈號：呼吸燈 3 次 → 長閃 n 下（新編號）→ 恆亮 1 秒 → 重開
   板載 LED（GPIO2）：開機閃組別（長閃 = 十位、短閃 = 個位；未設定 = 快閃 10 下）
                      之後每秒短亮 = 等待藍牙連線；恆亮 = phyphox 已連上
   韌體版本：FW_VERSION（序列埠輸入 ? 會顯示）
@@ -35,7 +36,7 @@
 #include <DallasTemperature.h>
 
 // ---------- 韌體版本（燒錄站「查看板子資訊」用來比對） ----------
-#define FW_VERSION "multi-2026.11.27-3"
+#define FW_VERSION "multi-2026.11.27-5"
 
 // ---------- 腳位 ----------
 #define LED_PIN    2
@@ -118,11 +119,26 @@ void ledUpdate() {
   digitalWrite(LED_PIN, c ? HIGH : ((now % 1000) < 100 ? HIGH : LOW));
 }
 
-// 用藍燈閃出數字（阻塞，只在切換模式重開前使用）
+// 切換感測器專用燈號（和其他燈號都不同，一看就知道正在換）：
+//   ① 呼吸燈 3 次（慢慢變亮、變暗）＝ 正在切換
+//   ② 長閃 n 下（每下 0.6 秒）＝ 新的感測器編號
+//   ③ 恆亮 1 秒後重開
 void blinkCount(int n) {
-  digitalWrite(LED_PIN, LOW); delay(400);
-  for (int i = 0; i < n; i++) { digitalWrite(LED_PIN, HIGH); delay(250); digitalWrite(LED_PIN, LOW); delay(300); }
-  delay(300);
+  ledcSetup(4, 5000, 8);
+  ledcAttachPin(LED_PIN, 4);
+  for (int b = 0; b < 3; b++) {
+    for (int d = 0; d <= 255; d += 5) { ledcWrite(4, d * d / 255); delay(6); }
+    for (int d = 255; d >= 0; d -= 5) { ledcWrite(4, d * d / 255); delay(6); }
+    delay(120);
+  }
+  ledcWrite(4, 0);
+  ledcDetachPin(LED_PIN);
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, LOW); delay(700);
+  for (int i = 0; i < n; i++) { digitalWrite(LED_PIN, HIGH); delay(600); digitalWrite(LED_PIN, LOW); delay(400); }
+  delay(400);
+  digitalWrite(LED_PIN, HIGH); delay(1000);
+  digitalWrite(LED_PIN, LOW);
 }
 
 // ---------- BOOT 鍵（GPIO0）：長按 1 秒切到下一個感測器 ----------
@@ -289,24 +305,19 @@ void motorSet(float pct) {
 void addModeSelectorView(PhyphoxBleExperiment &exp) {
   static PhyphoxBleExperiment::View v;
   v.setLabel("換感測器");
-  // 用「數字輸入」而非下拉選單：下拉選單要 phyphox 1.2.0 以上才支援，數字輸入所有版本都能用
-  static PhyphoxBleExperiment::InfoField list;
-  list.setInfo("輸入感測器編號：1 溫度｜2 光閘計時｜3 轉速｜4 電壓電流｜5 馬達特性");
+  // 下拉選單、滑桿需要 phyphox 1.2.0 以上（App Store 目前版本即可）
   // phyphox 函式庫限制每段說明最多 191 bytes（中文字 3 bytes），所以分成兩段
   static PhyphoxBleExperiment::InfoField info;
-  info.setInfo("輸入編號後按上方 ▶，板子會閃出編號並自動重開（約 3 秒）。回 phyphox 首頁重新加入同一個 PHY-G。");
+  info.setInfo("選好後按上方 ▶，板子會閃出編號並自動重開（約 3 秒）。回 phyphox 首頁重新加入同一個 PHY-G。");
   static PhyphoxBleExperiment::InfoField info2;
   info2.setInfo("沒有 iPad 時：長按板子上的 BOOT 鍵 1 秒，切到下一個感測器。");
-  static PhyphoxBleExperiment::Edit dd;
-  dd.setLabel("感測器編號");
+  static PhyphoxBleExperiment::Dropdown dd;
+  dd.setLabel("感測器");
+  dd.setOptions(M_COUNT, MODE_LABELS, MODE_VALUES);
   dd.setDefault(modeNo);
-  dd.setSigned(false);
-  dd.setDecimal(false);
-  dd.setXMLAttribute("min=\"1\" max=\"5\"");
   dd.setChannel(1);
   static PhyphoxBleExperiment::InfoField pins;
   pins.setInfo("接線：DS18B20 DQ→4｜光閘 DO→27｜霍爾 DO→26｜INA219 SDA→21 SCL→22｜L9110S A-IA→25 A-IB→33｜VCC 3.3V、GND 共地");
-  v.addElement(list);
   v.addElement(dd);
   v.addElement(info);
   v.addElement(info2);
@@ -375,15 +386,15 @@ void buildExperiment() {
     const char *const L[] = {"t (s)", "遮光時間 (s)", "間隔 (s)", "次數"};
     addExport(exp, "光閘", 4, L);
   } else if (modeNo == M_RPM) {
-    exp.setDescription("霍爾感測器量轉速。頻道1 = 時間 (s)，2 = 轉速 (rpm)，3 = 轉一圈時間 (s)。轉盤上磁鐵數量請在下方輸入。");
+    exp.setDescription("霍爾感測器量轉速。頻道1 = 時間 (s)，2 = 轉速 (rpm)，3 = 轉一圈時間 (s)。轉盤上磁鐵數量請用下方滑桿設定。");
     static PhyphoxBleExperiment::View v; v.setLabel("轉速");
     static PhyphoxBleExperiment::Graph g; makeGraph(g, "轉速 vs 時間", 1, 2, "時間 t", "s", "轉速", "rpm");
     static PhyphoxBleExperiment::Value a, b;
     makeValue(a, "轉速", 2, "rpm", 1);
     makeValue(b, "週期", 3, "s", 4);
-    static PhyphoxBleExperiment::Edit s;
-    s.setLabel("每圈磁鐵數（按 ▶ 生效）"); s.setDefault(pulsesPerRev); s.setSigned(false); s.setDecimal(false);
-    s.setXMLAttribute("min=\"1\" max=\"12\""); s.setChannel(2);
+    static PhyphoxBleExperiment::Slider s;
+    s.setLabel("每圈磁鐵數"); s.setMinValue(1); s.setMaxValue(12); s.setStepSize(1);
+    s.setDefault(pulsesPerRev); s.setPrecision(0); s.setShowValue(true); s.setChannel(2);
     v.addElement(g); v.addElement(a); v.addElement(b); v.addElement(s);
     exp.addView(v);
     const char *const L[] = {"t (s)", "轉速 (rpm)", "週期 (s)"};
@@ -407,11 +418,11 @@ void buildExperiment() {
     const char *const L[] = {"t (s)", "V (V)", "I (mA)", "P (mW)"};
     addExport(exp, "電壓電流", 4, L);
   } else {  // M_MOTOR
-    exp.setDescription("L9110S 馬達。在「馬達輸出」輸入 -100~100（%，負值反轉），量測進行中改數字即時生效。頻道1 = 時間，2 = 輸出 %，3 = 轉速 rpm（霍爾 GPIO26），4 = 電壓 V，5 = 電流 mA（INA219）。");
+    exp.setDescription("L9110S 馬達。用滑桿設定輸出（-100~100%，負值反轉），量測進行中拉動即時生效。頻道1 = 時間，2 = 輸出 %，3 = 轉速 rpm（霍爾 GPIO26），4 = 電壓 V，5 = 電流 mA（INA219）。");
     static PhyphoxBleExperiment::View v; v.setLabel("馬達");
-    static PhyphoxBleExperiment::Edit s;
-    s.setLabel("馬達輸出（-100～100）"); s.setDefault(0); s.setSigned(true); s.setDecimal(false); s.setUnit("%");
-    s.setXMLAttribute("min=\"-100\" max=\"100\""); s.setChannel(2);
+    static PhyphoxBleExperiment::Slider s;
+    s.setLabel("馬達輸出 %"); s.setMinValue(-100); s.setMaxValue(100); s.setStepSize(5);
+    s.setDefault(0); s.setPrecision(0); s.setShowValue(true); s.setChannel(2);
     static PhyphoxBleExperiment::Value a, b, c;
     makeValue(a, "轉速", 3, "rpm", 0);
     makeValue(b, "電壓", 4, "V", 2);
