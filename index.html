@@ -147,7 +147,7 @@ td:first-child{font-family:"JetBrains Mono",monospace;white-space:nowrap}
     <div class="wgrid">
       <label>Wi-Fi 名稱 1<input id="ws1" autocomplete="off" spellcheck="false"></label>
       <label>密碼 1<input id="wp1" type="password" autocomplete="off"></label>
-      <label>Wi-Fi 名稱 2（共用熱點，預設 PHYBLE）<input id="ws2" autocomplete="off" spellcheck="false"></label>
+      <label>Wi-Fi 名稱 2（共用熱點，預設 PJPHY）<input id="ws2" autocomplete="off" spellcheck="false"></label>
       <label>密碼 2<input id="wp2" type="password" autocomplete="off"></label>
     </div>
     <label class="opt"><input type="checkbox" id="wshow">顯示密碼</label>
@@ -394,9 +394,9 @@ $('setonly').onclick=async()=>{
 
 // ---- 無線更新用 Wi-Fi ----
 const WF=['ws1','wp1','ws2','wp2'];
-// 預設第二組 = 全班共用熱點 PHYBLE（任何人把手機熱點改成這個名稱、密碼，所有板子都能用）
+// 預設第二組 = 全班共用熱點 PJPHY（任何人把手機熱點改成這個名稱、密碼，所有板子都能用）
 let wSaved=null;try{wSaved=localStorage.getItem('phyble-wifi')}catch(e){}
-if(!wSaved){$('ws2').value='PHYBLE';$('wp2').value='phy12345'}
+if(!wSaved){$('ws2').value='PJPHY';$('wp2').value='phy12345'}
 try{const w=JSON.parse(localStorage.getItem('phyble-wifi')||'{}');WF.forEach(k=>{if(w[k])$(k).value=w[k]});if(localStorage.getItem('phyble-wifikeep')==='0')$('wkeep').checked=false}catch(e){}
 function wifiItems(){const o=[];if($('ws1').value.trim())o.push(['wssid',$('ws1').value.trim()],['wpass',$('wp1').value]);if($('ws2').value.trim())o.push(['wssid2',$('ws2').value.trim()],['wpass2',$('wp2').value]);return o}
 function wifiSave(){
