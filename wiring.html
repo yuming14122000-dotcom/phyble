@@ -205,14 +205,14 @@ const MODES={
  gate:{name:'光閘：XD-51 槽型光耦',phy:'2 光閘計時',
   parts:['ESP32 開發板 ×1','麵包板 ×1','XD-51 測速（槽型光耦）模組 ×1','公對母杜邦線 ×3（接模組）','公對公杜邦線 ×3','擋光片（紙卡、尺）'],
   items:[...POWER,
-   {s:2,t:'modOff',x:1095,y:110,cols:[18,19,20,null],name:'XD-51',pins:['VCC','GND','DO','AO'],color:'#1d4fa3',slot:true},
+   {s:2,t:'modOff',x:1095,y:110,cols:[null,20,19,18],name:'XD-51',pins:['AO','DO','GND','VCC'],color:'#1d4fa3',slot:true},
    {s:3,t:'jmp',from:[18,'g'],to:[18,'+'],color:'red'},
    {s:3,t:'jmp',from:[19,'g'],to:[19,'-'],color:'black'},
    {s:4,t:'esp',pin:'27',to:[20,'g'],color:'green'}],
   steps:[
    {h:'準備材料',p:'槽型光耦的 U 形槽一邊發紅外光、一邊接收；東西穿過槽時就會「遮光」。'},
    {h:'電源軌：3.3V 與 GND',p:'ESP32 的 3.3V 接 + 軌（紅），GND 接 − 軌（黑）。',warn:'用 3.3V 供電，輸出才不會超過 ESP32 能承受的電壓。'},
-   {h:'用杜邦線接 XD-51 模組',p:'模組不要插在麵包板上，U 形槽才不會被擋住。用 3 條公對母杜邦線：母頭套在模組的 VCC、GND、DO，公頭分別插 j18、j19、j20。AO 不用接。',warn:'請看模組絲印，照「VCC、GND、DO」的名稱接，不要只看位置。模組可以用膠帶或夾子固定在桌邊、支架上，讓擋光片或擺錘能從 U 形槽中間穿過。'},
+   {h:'用杜邦線接 XD-51 模組',p:'模組不要插在麵包板上，U 形槽才不會被擋住。XD-51 的腳位順序是 AO、DO、GND、VCC。用 3 條公對母杜邦線：VCC → j18（紅）、GND → j19（黑）、DO → j20（綠），AO 不用接。',warn:'請看模組絲印，照「VCC、GND、DO」的名稱接，不要只看位置。模組可以用膠帶或夾子固定在桌邊、支架上，讓擋光片或擺錘能從 U 形槽中間穿過。'},
    {h:'模組接電源',p:'VCC 那排（g18）接 + 軌，GND 那排（g19）接 − 軌。'},
    {h:'DO 接到 GPIO27',p:'DO 那排（g20）接到 ESP32 的 GPIO27。'},
    {h:'完成！',p:'在 phyphox「換感測器」選「2 光閘計時」。開機時槽內不要有東西。速度 = 擋光片寬度 ÷ 遮光時間；單擺週期看「間隔」。'}]},
@@ -417,7 +417,7 @@ function module(g,it){
   if(it.name==='HALL'){el('rect',{x:(x0+x1)/2-7,y:y-h-22,width:14,height:16,rx:2,fill:'#111'},g)}
 }
 // 不插在麵包板上的模組：用公對母杜邦線接到 j 排（光閘、霍爾）
-const MOFF_COL=['red','black','green','gray'];
+const MOFF_COL={VCC:'red',GND:'black',DO:'green',AO:'gray'};
 function modOffGeom(it){const n=it.pins.length,W=it.compact?120:140,H=30+n*P+10;return{n,W,H,px:i=>[it.x+12,it.y+32+i*P]}}
 function moduleOff(g,it){
   const G=modOffGeom(it);
@@ -428,7 +428,7 @@ function moduleOff(g,it){
     txt(sx+13,it.y+G.H+16,'U 形槽',{'font-size':11,'font-weight':700,'text-anchor':'middle',fill:'var(--ink)'},g)}
   if(it.hall){const hx=it.x+G.W-24,hy=it.y+G.H/2;el('rect',{x:hx,y:hy-8,width:16,height:16,rx:2,fill:'#111'},g);txt(hx+8,it.y+G.H+16,'感測頭',{'font-size':11,'font-weight':700,'text-anchor':'middle',fill:'var(--ink)'},g)}
   it.cols.forEach((c,i)=>{if(!c)return;const [x,y]=G.px(i),[hx,hy]=hole(c,'j'),lx=it.x-16-i*9,ty=BY-10-i*9;
-    drawWire(g,[[x,y],[lx,y],[lx,ty],[hx,ty],[hx,hy]],MOFF_COL[i])});
+    drawWire(g,[[x,y],[lx,y],[lx,ty],[hx,ty],[hx,hy]],MOFF_COL[it.pins[i]]||'gray')});
 }
 function probe(g,it){
   const bx=cx(16),by=BY-8;
@@ -648,7 +648,7 @@ function moduleOff3D(it,state,list){
   if(it.slot){const sx=it.x+G.W-21,z0=it.y+30,len=G.H-44;box(10,28,len,sx-8,top+14,z0+len/2,mat(0x111111),list);box(10,28,len,sx+8,top+14,z0+len/2,mat(0x111111),list)}
   if(it.hall){box(14,6,14,it.x+G.W-16,top+3,it.y+G.H/2,mat(0x111111),list)}
   it.cols.forEach((c,i)=>{if(!c)return;const [x,z]=G.px(i),[hx,hz]=hole(c,'j'),lx=it.x-16-i*9,tz=BY-10-i*9,h=30+i*4;
-    wire3D([[x,top+10,z],[x,top+26,z],[lx,h,z],[lx,h,tz],[hx,h,tz],[hx,18,hz],[hx,0,hz]],MOFF_COL[i],state,list)});
+    wire3D([[x,top+10,z],[x,top+26,z],[lx,h,z],[lx,h,tz],[hx,h,tz],[hx,18,hz],[hx,0,hz]],MOFF_COL[it.pins[i]]||'gray',state,list)});
 }
 function probe3D(it,list){
   const bx=cx(16),bz=BY-40,steel=mat(0xc8ced4,{metalness:.8,roughness:.25});
