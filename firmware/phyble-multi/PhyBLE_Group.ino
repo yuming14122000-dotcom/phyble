@@ -48,7 +48,7 @@
 #define OTA_INFO_FILE    "phyble-multi/ota.json"
 
 // ---------- 韌體版本（燒錄站「查看板子資訊」用來比對） ----------
-#define FW_VERSION "multi-2026.11.27-6"
+#define FW_VERSION "multi-2026.11.28-1"
 
 // ---------- 腳位 ----------
 #define LED_PIN    2
@@ -229,6 +229,15 @@ void startPulseCapture(uint8_t pin) {
   attachInterrupt(digitalPinToInterrupt(pin), onEdge, CHANGE);
 }
 
+// ---------- 量測時間：按 ▶ 從 0 起算，暫停後繼續則接續 ----------
+volatile uint8_t expEvent = 0xFF;       // 由 BLE 回呼設定，loop 處理
+uint32_t t0Ms = 0, t0Us = 0;            // 時間零點
+uint32_t pauseMs = 0, pauseUs = 0;
+bool expFresh = true, expPaused = false;
+void onExperimentEvent() { expEvent = PhyphoxBLE::eventType; }
+inline float relMs(uint32_t ms) { return (int32_t)(ms - t0Ms) / 1000.0f; }
+inline float relUs(uint32_t us) { return (int32_t)(us - t0Us) / 1e6f; }
+
 // 光閘
 uint32_t gateStart = 0, gateLastStart = 0;
 bool gateBlocked = false;
@@ -256,7 +265,7 @@ void processEdges(uint32_t nowUs) {
         if (d < 50) continue;                       // 濾除雜訊
         gateLastDur = d / 1e6f;
         gateCount++;
-        float tt = gateStart / 1e6f, cnt = gateCount;
+        float tt = relUs(gateStart), cnt = gateCount;
         float dur = gateLastDur, per = gateLastPeriod;
         PhyphoxBLE::write(tt, dur, per, cnt);
       }
@@ -700,6 +709,7 @@ void setup() {
 
   PhyphoxBLE::start(bleName);
   PhyphoxBLE::configHandler = &onPhyphoxConfig;
+  PhyphoxBLE::experimentEventHandler = &onExperimentEvent;
   buildExperiment();
 
   switch (modeNo) {
@@ -751,15 +761,45 @@ void handlePhoneInput() {
   }
 }
 
+void resetCounters() {
+  gateCount = 0; gateLastStart = 0; gateLastDur = 0; gateLastPeriod = 0;
+  rpmHavePulse = false; rpmValue = 0; rpmPeriod = 0;
+}
+
+void handleExperimentEvent() {
+  uint8_t ev = expEvent;
+  if (ev == 0xFF) return;
+  expEvent = 0xFF;
+  uint32_t ms = millis(), us = micros();
+  if (ev == 1) {                                   // ▶ 開始
+    if (expFresh) {
+      t0Ms = ms; t0Us = us; expFresh = false;
+      resetCounters();
+      Serial.println("開始量測：時間歸零");
+    } else if (expPaused) {                        // 暫停後繼續：扣掉暫停的時間
+      t0Ms += ms - pauseMs; t0Us += us - pauseUs;
+      Serial.println("繼續量測");
+    }
+    expPaused = false;
+  } else if (ev == 0) {                            // ❚❚ 暫停
+    if (!expPaused) { pauseMs = ms; pauseUs = us; expPaused = true; }
+  } else if (ev == 2) {                            // 🗑 清除資料
+    expFresh = true; expPaused = false;
+    Serial.println("清除資料：下次開始時間歸零");
+  }
+}
+
 void loop() {
   static uint32_t lastSample = 0;
+  if (!bleConnected()) { expFresh = true; expPaused = false; }   // 換 iPad／重新連線也從 0 起算
+  handleExperimentEvent();
   pollSerial();
   ledUpdate();
   handlePhoneInput();
   pollBootButton();
 
   uint32_t nowMs = millis();
-  float t = nowMs / 1000.0f;
+  float t = relMs(nowMs);
 
   switch (modeNo) {
     case M_TEMP:
@@ -774,7 +814,7 @@ void loop() {
         float t2 = dsCount > 1 ? ds18.getTempCByIndex(1) : NAN;
         if (t1 == DEVICE_DISCONNECTED_C) { dsCount = 0; Serial.println("DS18B20 讀取失敗，重新偵測"); break; }
         if (t2 == DEVICE_DISCONNECTED_C) t2 = NAN;
-        float ts = dsRequestAt / 1000.0f;
+        float ts = relMs(dsRequestAt);
         PhyphoxBLE::write(ts, t1, t2);
       }
       break;
