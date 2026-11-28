@@ -48,7 +48,7 @@
 #define OTA_INFO_FILE    "phyble-multi/ota.json"
 
 // ---------- 韌體版本（燒錄站「查看板子資訊」用來比對） ----------
-#define FW_VERSION "multi-2026.11.28-1"
+#define FW_VERSION "multi-2026.11.28-2"
 
 // ---------- 腳位 ----------
 #define LED_PIN    2
@@ -653,7 +653,7 @@ void runOta() {
   http.setTimeout(20000);
   if (!http.begin(client, base + OTA_INFO_FILE)) otaFinish(false, "網址錯誤");
   int code = http.GET();
-  if (code != 200) { Serial.printf("OTA 讀取版本資訊失敗 HTTP %d\n", code); http.end(); otaFinish(false, "讀不到版本資訊（網路或憑證問題）"); }
+  if (code != 200) { char eb[120] = ""; client.lastError(eb, sizeof(eb)); Serial.printf("OTA 讀取版本資訊失敗 HTTP %d（%s）TLS：%s\n", code, HTTPClient::errorToString(code).c_str(), eb); http.end(); otaFinish(false, "讀不到版本資訊（網路或憑證問題）"); }
   String js = http.getString(); http.end();
   String fwid = jsonStr(js, "fwid"), file = jsonStr(js, "file"), md5 = jsonStr(js, "md5");
   int size = jsonStr(js, "size").toInt();
@@ -666,7 +666,7 @@ void runOta() {
   }
   if (!http.begin(client, base + file)) otaFinish(false, "網址錯誤");
   code = http.GET();
-  if (code != 200) { Serial.printf("OTA 下載失敗 HTTP %d\n", code); http.end(); otaFinish(false, "下載失敗"); }
+  if (code != 200) { char eb[120] = ""; client.lastError(eb, sizeof(eb)); Serial.printf("OTA 下載失敗 HTTP %d（%s）TLS：%s\n", code, HTTPClient::errorToString(code).c_str(), eb); http.end(); otaFinish(false, "下載失敗"); }
   if (!Update.begin(size)) { http.end(); otaFinish(false, "空間不足（需要支援 OTA 的分區）"); }
   if (md5.length() == 32) Update.setMD5(md5.c_str());
   Update.onProgress([](size_t done, size_t total) {
