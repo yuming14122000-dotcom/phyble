@@ -348,8 +348,8 @@ figcaption{font-size:14px;color:var(--mute);margin-top:6px;text-align:center}
     <thead><tr><th>感測器</th><th>接到 ESP32</th><th>phyphox 會顯示</th><th>注意</th></tr></thead>
     <tbody>
       <tr><td>1 溫度 DS18B20</td><td>DQ → GPIO4</td><td>溫度對時間，可接兩支探頭</td><td>裸探頭要加 4.7 kΩ 電阻（模組板已內建）</td></tr>
-      <tr><td>2 光閘 XD-51</td><td>DO → GPIO27</td><td>遮光時間、間隔、次數</td><td>開機時槽內不要有東西；速度 = 擋片寬 ÷ 遮光時間</td></tr>
-      <tr><td>3 轉速 霍爾</td><td>DO → GPIO26</td><td>轉速 rpm、週期</td><td>轉盤貼磁鐵，用「每圈磁鐵數」滑桿設定數量；開機時磁鐵不要停在感測器前</td></tr>
+      <tr><td>2 光閘 XD-51</td><td>DO → GPIO27</td><td>遮光時間、間隔、次數</td><td>模組用公對母杜邦線接出來，不要插在麵包板上（U 形槽會被擋住）；開機時槽內不要有東西；速度 = 擋片寬 ÷ 遮光時間</td></tr>
+      <tr><td>3 轉速 霍爾</td><td>DO → GPIO26</td><td>轉速 rpm、週期</td><td>模組用公對母杜邦線接出來，固定在轉盤旁；轉盤貼磁鐵，用「每圈磁鐵數」滑桿設定數量；開機時磁鐵不要停在感測器前</td></tr>
       <tr><td>4 電壓電流 INA219</td><td>SDA → 21、SCL → 22</td><td>電壓、電流、功率、V-I 圖</td><td>待測電路負極要和 ESP32 GND 接在一起；上限 26V、3.2A</td></tr>
       <tr><td>5 馬達 L9110S</td><td>A-IA → 25、A-IB → 33</td><td>滑桿調輸出 −100～100%（量測中即時生效），轉速、電壓、電流</td><td>馬達用電池盒供電，不能用 ESP32 的 3.3V；要共地</td></tr>
     </tbody>

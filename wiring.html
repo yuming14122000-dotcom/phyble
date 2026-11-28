@@ -203,30 +203,30 @@ const MODES={
    {h:'DQ 接到 GPIO4',p:'DQ 那排（g15）接到 ESP32 的 GPIO4。'},
    {h:'完成！',p:'在 phyphox「換感測器」選「1 溫度」。'}]},
  gate:{name:'光閘：XD-51 槽型光耦',phy:'2 光閘計時',
-  parts:['ESP32 開發板 ×1','麵包板 ×1','XD-51 測速（槽型光耦）模組 ×1','公對公杜邦線 ×5','擋光片（紙卡、尺）'],
+  parts:['ESP32 開發板 ×1','麵包板 ×1','XD-51 測速（槽型光耦）模組 ×1','公對母杜邦線 ×3（接模組）','公對公杜邦線 ×3','擋光片（紙卡、尺）'],
   items:[...POWER,
-   {s:2,t:'mod',cols:[18,19,20,21],name:'XD-51',pins:['VCC','GND','DO','AO'],color:'#1d4fa3',h:70,slot:true},
+   {s:2,t:'modOff',x:1095,y:110,cols:[18,19,20,null],name:'XD-51',pins:['VCC','GND','DO','AO'],color:'#1d4fa3',slot:true},
    {s:3,t:'jmp',from:[18,'g'],to:[18,'+'],color:'red'},
    {s:3,t:'jmp',from:[19,'g'],to:[19,'-'],color:'black'},
    {s:4,t:'esp',pin:'27',to:[20,'g'],color:'green'}],
   steps:[
    {h:'準備材料',p:'槽型光耦的 U 形槽一邊發紅外光、一邊接收；東西穿過槽時就會「遮光」。'},
    {h:'電源軌：3.3V 與 GND',p:'ESP32 的 3.3V 接 + 軌（紅），GND 接 − 軌（黑）。',warn:'用 3.3V 供電，輸出才不會超過 ESP32 能承受的電壓。'},
-   {h:'插入 XD-51 模組',p:'四支腳插 j18～j21，U 形槽朝圖的上方。',warn:'圖上的腳位順序是 VCC / GND / DO / AO；請以板子絲印為準。AO 不用接。'},
+   {h:'用杜邦線接 XD-51 模組',p:'模組不要插在麵包板上，U 形槽才不會被擋住。用 3 條公對母杜邦線：母頭套在模組的 VCC、GND、DO，公頭分別插 j18、j19、j20。AO 不用接。',warn:'請看模組絲印，照「VCC、GND、DO」的名稱接，不要只看位置。模組可以用膠帶或夾子固定在桌邊、支架上，讓擋光片或擺錘能從 U 形槽中間穿過。'},
    {h:'模組接電源',p:'VCC 那排（g18）接 + 軌，GND 那排（g19）接 − 軌。'},
    {h:'DO 接到 GPIO27',p:'DO 那排（g20）接到 ESP32 的 GPIO27。'},
    {h:'完成！',p:'在 phyphox「換感測器」選「2 光閘計時」。開機時槽內不要有東西。速度 = 擋光片寬度 ÷ 遮光時間；單擺週期看「間隔」。'}]},
  hall:{name:'轉速：霍爾感測器模組',phy:'3 轉速',
-  parts:['ESP32 開發板 ×1','麵包板 ×1','霍爾感測器模組 ×1','小磁鐵 ×1（貼在轉盤上）','公對公杜邦線 ×5'],
+  parts:['ESP32 開發板 ×1','麵包板 ×1','霍爾感測器模組 ×1','小磁鐵 ×1（貼在轉盤上）','公對母杜邦線 ×3（接模組）','公對公杜邦線 ×3'],
   items:[...POWER,
-   {s:2,t:'mod',cols:[18,19,20],name:'HALL',pins:['VCC','GND','DO'],color:'#1d4fa3',h:66},
+   {s:2,t:'modOff',x:1095,y:110,cols:[18,19,20],name:'HALL',pins:['VCC','GND','DO'],color:'#1d4fa3',hall:true},
    {s:3,t:'jmp',from:[18,'g'],to:[18,'+'],color:'red'},
    {s:3,t:'jmp',from:[19,'g'],to:[19,'-'],color:'black'},
    {s:4,t:'esp',pin:'26',to:[20,'g'],color:'blue'}],
   steps:[
    {h:'準備材料',p:'磁鐵經過霍爾感測器時，DO 腳會改變電位；每轉一圈經過一次，就能算出轉速。'},
    {h:'電源軌：3.3V 與 GND',p:'ESP32 的 3.3V 接 + 軌（紅），GND 接 − 軌（黑）。'},
-   {h:'插入霍爾模組',p:'三支腳插 j18～j20，感測頭朝圖的上方。',warn:'圖上的腳位順序是 VCC / GND / DO；請以板子絲印為準。有 AO 腳的不用接。'},
+   {h:'用杜邦線接霍爾模組',p:'用 3 條公對母杜邦線：母頭套在模組的 VCC、GND、DO，公頭分別插 j18、j19、j20。模組就能拿到轉盤旁邊固定。',warn:'請看模組絲印，照「VCC、GND、DO」的名稱接。有 AO 腳的不用接。'},
    {h:'模組接電源',p:'VCC 那排（g18）接 + 軌，GND 那排（g19）接 − 軌。'},
    {h:'DO 接到 GPIO26',p:'DO 那排（g20）接到 ESP32 的 GPIO26。'},
    {h:'完成！',p:'在 phyphox「換感測器」選「3 轉速」，並用滑桿設定轉盤上的磁鐵數。開機時磁鐵不要停在感測器前。'}]},
@@ -253,14 +253,14 @@ const MODES={
    {h:'LED 短腳接地',p:'f18 接到 − 軌，電流回到 GND，電路完成。'},
    {h:'完成！',p:'在 phyphox「換感測器」選「4 電壓電流」，應看到約 3V 以下、幾 mA 的電流。換不同電阻或燈泡，比較 V-I 圖。',warn:'要量其他電源（電池）時：電池 + 接 VIN+，負載接 VIN−，電池 − 一定要和 ESP32 GND 接在一起。上限 26V、3.2A。'}]},
  motor:{name:'馬達：L9110S + 霍爾測轉速',phy:'5 馬達特性',
-  parts:['ESP32 開發板 ×1','麵包板 ×1','L9110S 馬達驅動模組 ×1','小型直流馬達 ×1（附轉盤與磁鐵）','霍爾感測器模組 ×1','4 號電池盒 ×1（4 顆，6V）','公對母杜邦線 ×4、公對公杜邦線 ×5'],
+  parts:['ESP32 開發板 ×1','麵包板 ×1','L9110S 馬達驅動模組 ×1','小型直流馬達 ×1（附轉盤與磁鐵）','霍爾感測器模組 ×1','4 號電池盒 ×1（4 顆，6V）','公對母杜邦線 ×7、公對公杜邦線 ×5'],
   items:[...POWER,
    {s:2,t:'l9110'},
    {s:3,t:'esp',pin:'25',to:'L:A-IA',color:'orange'},
    {s:3,t:'esp',pin:'33',to:'L:A-IB',color:'purple'},
    {s:4,t:'bat'},
    {s:4,t:'lw',from:'L:GND',to:[28,'-'],color:'black'},
-   {s:5,t:'mod',cols:[18,19,20],name:'HALL',pins:['VCC','GND','DO'],color:'#1d4fa3',h:66},
+   {s:5,t:'modOff',x:1135,y:8,cols:[18,19,20],name:'HALL',pins:['VCC','GND','DO'],color:'#1d4fa3',hall:true,compact:true},
    {s:5,t:'jmp',from:[18,'g'],to:[18,'+'],color:'red'},
    {s:5,t:'jmp',from:[19,'g'],to:[19,'-'],color:'black'},
    {s:6,t:'esp',pin:'26',to:[20,'g'],color:'blue'}],
@@ -270,7 +270,7 @@ const MODES={
    {h:'放 L9110S、接馬達',p:'L9110S 放在麵包板右邊，馬達兩條線鎖進「MOTOR A」端子。',warn:'L9110S 的排針用公對母杜邦線連接。'},
    {h:'控制線 A-IA、A-IB',p:'A-IA 接 GPIO25，A-IB 接 GPIO33。'},
    {h:'馬達電源（電池盒）',p:'電池盒 + 接 L9110S 的 VCC，電池盒 − 接 L9110S 的 GND；L9110S 的 GND 再接回麵包板 − 軌（共地）。',warn:'馬達不可以用 ESP32 的 3.3V 供電。一定要共地，否則控制訊號無效。'},
-   {h:'霍爾感測器',p:'霍爾模組插 j18～j20；VCC（g18）接 + 軌，GND（g19）接 − 軌。',warn:'把霍爾感測器固定在轉盤旁，磁鐵轉過時要靠近感測頭（約 5 mm 內）。'},
+   {h:'霍爾感測器',p:'用 3 條公對母杜邦線把霍爾模組的 VCC、GND、DO 接到 j18、j19、j20；再把 g18 接 + 軌、g19 接 − 軌。',warn:'把霍爾感測器固定在轉盤旁，磁鐵轉過時要靠近感測頭（約 5 mm 內）。'},
    {h:'DO 接到 GPIO26',p:'霍爾模組 DO（g20）接到 ESP32 的 GPIO26。'},
    {h:'完成！',p:'在 phyphox「換感測器」選「5 馬達特性」，用滑桿調輸出 −100～100%（負值反轉），觀察轉速與電流。要量電流的話，把 INA219 串在電池盒 + 和 L9110S VCC 之間（SDA→21、SCL→22）。'}]}
 };
@@ -416,6 +416,20 @@ function module(g,it){
   if(it.term){el('rect',{x:(x0+x1)/2-20,y:y-h-26,width:40,height:22,rx:3,fill:'#2fae5a',stroke:'#1d7a3d'},g)}
   if(it.name==='HALL'){el('rect',{x:(x0+x1)/2-7,y:y-h-22,width:14,height:16,rx:2,fill:'#111'},g)}
 }
+// 不插在麵包板上的模組：用公對母杜邦線接到 j 排（光閘、霍爾）
+const MOFF_COL=['red','black','green','gray'];
+function modOffGeom(it){const n=it.pins.length,W=it.compact?120:140,H=30+n*P+10;return{n,W,H,px:i=>[it.x+12,it.y+32+i*P]}}
+function moduleOff(g,it){
+  const G=modOffGeom(it);
+  el('rect',{x:it.x,y:it.y,width:G.W,height:G.H,rx:6,fill:it.color,stroke:'#0005'},g);
+  txt(it.x+G.W/2+10,it.y+20,it.name,{'font-size':13,'font-weight':900,'text-anchor':'middle',fill:'#fff'},g);
+  it.pins.forEach((n,i)=>{const [x,y]=G.px(i);el('rect',{x:x-6,y:y-6,width:12,height:12,rx:2,fill:'#c9a227'},g);txt(x+12,y+4,n,{'font-size':10,fill:'#fff',class:'lbl'},g)});
+  if(it.slot){const sx=it.x+G.W-34,sy=it.y+30;el('rect',{x:sx,y:sy,width:26,height:G.H-44,rx:3,fill:'#111'},g);el('rect',{x:sx+9,y:sy,width:8,height:G.H-52,fill:it.color},g);
+    txt(sx+13,it.y+G.H+16,'U 形槽',{'font-size':11,'font-weight':700,'text-anchor':'middle',fill:'var(--ink)'},g)}
+  if(it.hall){const hx=it.x+G.W-24,hy=it.y+G.H/2;el('rect',{x:hx,y:hy-8,width:16,height:16,rx:2,fill:'#111'},g);txt(hx+8,it.y+G.H+16,'感測頭',{'font-size':11,'font-weight':700,'text-anchor':'middle',fill:'var(--ink)'},g)}
+  it.cols.forEach((c,i)=>{if(!c)return;const [x,y]=G.px(i),[hx,hy]=hole(c,'j'),lx=it.x-16-i*9,ty=BY-10-i*9;
+    drawWire(g,[[x,y],[lx,y],[lx,ty],[hx,ty],[hx,hy]],MOFF_COL[i])});
+}
 function probe(g,it){
   const bx=cx(16),by=BY-8;
   el('rect',{x:bx-70,y:by-30,width:90,height:18,rx:9,fill:'#c8ced4',stroke:'#8d959c'},g);
@@ -484,7 +498,7 @@ function init3D(){
 const CAMDIR={angle:[-.08,.78,.62],top:[0,1,.002],front:[0,.32,1],left:[-1,.55,.3]};
 function camPreset(k){
   if(!T3.ready)return;
-  const G=espGeom(),hasL=MODES[modeKey].items.some(it=>it.t==='l9110'),xmax=hasL?LX+260:BX+40+(COLS-1)*P+60;
+  const G=espGeom(),hasL=MODES[modeKey].items.some(it=>it.t==='l9110'),hasO=MODES[modeKey].items.some(it=>it.t==='modOff'),xmax=hasL?LX+260:hasO?1260:BX+40+(COLS-1)*P+60;
   const zmin=Math.min(EY,BY)-70,zmax=Math.max(G.y0+G.H+60,BY+460,hasL?BTY+110:0);
   const bx=new THREE.Box3(new THREE.Vector3(EX-40,TABLE,zmin),new THREE.Vector3(xmax,60,zmax));
   const c=bx.getCenter(new THREE.Vector3()),s=bx.getSize(new THREE.Vector3());
@@ -622,6 +636,20 @@ function module3D(it,list){
   if(it.term){box(40,12,14,cxm,PT+7,zt+10,mat(0x2fae5a),list)}
   if(it.name==='HALL'){box(10,4,8,cxm,PT+3,zt+6,mat(0x111111),list);[-3,0,3].forEach(d=>box(1,1,14,cxm+d,PT+2,zt+14,goldM(),list))}
 }
+function moduleOff3D(it,state,list){
+  const G=modOffGeom(it),top=TABLE+14;
+  const tex=canvasTex(G.W,G.H,g=>{g.fillStyle=it.color;g.fillRect(0,0,G.W,G.H);g.fillStyle='#fff';g.font='900 13px sans-serif';g.textAlign='center';g.fillText(it.name,G.W/2+10,20);
+    g.font='700 10px monospace';g.textAlign='left';it.pins.forEach((n,i)=>g.fillText(n,24,36+i*P))},4);
+  const sm=mat(new THREE.Color(it.color).getHex());
+  box(G.W,2.4,G.H,it.x+G.W/2,top-1.2,it.y+G.H/2,[sm,sm,new THREE.MeshStandardMaterial({map:tex,roughness:.6}),sm,sm,sm],list);
+  [[6,6],[G.W-6,6],[6,G.H-6],[G.W-6,G.H-6]].forEach(([dx,dz])=>cyl(2.5,top-2.4-TABLE,it.x+dx,(top-2.4+TABLE)/2,it.y+dz,mat(0x333333),list));
+  const gold=goldM();
+  it.pins.forEach((n,i)=>{const [x,z]=G.px(i);box(2.6,10,2.6,x,top+5,z,gold,list)});
+  if(it.slot){const sx=it.x+G.W-21,z0=it.y+30,len=G.H-44;box(10,28,len,sx-8,top+14,z0+len/2,mat(0x111111),list);box(10,28,len,sx+8,top+14,z0+len/2,mat(0x111111),list)}
+  if(it.hall){box(14,6,14,it.x+G.W-16,top+3,it.y+G.H/2,mat(0x111111),list)}
+  it.cols.forEach((c,i)=>{if(!c)return;const [x,z]=G.px(i),[hx,hz]=hole(c,'j'),lx=it.x-16-i*9,tz=BY-10-i*9,h=30+i*4;
+    wire3D([[x,top+10,z],[x,top+26,z],[lx,h,z],[lx,h,tz],[hx,h,tz],[hx,18,hz],[hx,0,hz]],MOFF_COL[i],state,list)});
+}
 function probe3D(it,list){
   const bx=cx(16),bz=BY-40,steel=mat(0xc8ced4,{metalness:.8,roughness:.25});
   const c=new THREE.Mesh(new THREE.CylinderGeometry(6,6,70,24),steel);c.rotation.z=Math.PI/2;c.position.set(bx-45,TABLE+6,bz);add(c,list);
@@ -675,6 +703,7 @@ function render3D(M,used){
     else if(it.t==='led')led3D(it,g);
     else if(it.t==='mod')module3D(it,g);
     else if(it.t==='probe')probe3D(it,g);
+    else if(it.t==='modOff')moduleOff3D(it,state,g);
     else if(it.t==='l9110')l9110_3D(g);
     else if(it.t==='bat')battery3D(state,g);
     if(!['esp','jmp','lw'].includes(it.t))stateMaterials(g,state);
@@ -724,6 +753,7 @@ function render(){
     else if(it.t==='led')led(g,it.a,it.k,it.col);
     else if(it.t==='mod')module(g,it);
     else if(it.t==='probe')probe(g,it);
+    else if(it.t==='modOff')moduleOff(g,it);
     else if(it.t==='l9110')drawL9110(g);
     else if(it.t==='bat')drawBattery(g);
   });
@@ -732,7 +762,8 @@ function render(){
   const conns=M.items.filter(it=>it.s===step).map(endpointText).filter(Boolean);
   const holes=M.items.filter(it=>it.s===step&&it.t==='res').map(it=>`電阻 ${it.val}：${hname(...it.a)} ↔ ${hname(...it.b)}`)
     .concat(M.items.filter(it=>it.s===step&&it.t==='led').map(it=>`LED：長腳 ${hname(...it.a)}、短腳 ${hname(...it.k)}`))
-    .concat(M.items.filter(it=>it.s===step&&it.t==='mod').map(it=>`${it.name}：`+it.cols.map((c,i)=>`${it.pins[i]} j${c}`).join('、')));
+    .concat(M.items.filter(it=>it.s===step&&it.t==='mod').map(it=>`${it.name}：`+it.cols.map((c,i)=>`${it.pins[i]} j${c}`).join('、')))
+    .concat(M.items.filter(it=>it.s===step&&it.t==='modOff').map(it=>`${it.name}（公對母杜邦線）：`+it.cols.map((c,i)=>c?`${it.pins[i]} → j${c}`:`${it.pins[i]} 不接`).join('、')));
   $('steps').innerHTML=`
     <div class="prog"><b>步驟 <span>${step+1}</span> / ${N}</b><div class="dots">${M.steps.map((_,i)=>`<i class="${i<step?'d':i===step?'c':''}"></i>`).join('')}</div></div>
     <h2>${st.h}</h2>
