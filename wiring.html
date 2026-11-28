@@ -116,7 +116,8 @@ const EX=60,EY=74;                // ESP32 左上
 const COLS=30;
 const ROWS={j:0,i:1,h:2,g:3,f:4,e:6,d:7,c:8,b:9,a:10};
 const cx=c=>BX+40+(c-1)*P;
-const ry=r=>r==='+'?BY+392:r==='-'?BY+414:r==='T+'?BY+22:r==='T-'?BY+44:BY+82+ROWS[r]*P;
+// 照實際麵包板：上方軌外側 −、內側 +；下方軌內側 −、外側 +
+const ry=r=>r==='-'?BY+392:r==='+'?BY+414:r==='T-'?BY+22:r==='T+'?BY+44:BY+82+ROWS[r]*P;
 const hole=(c,r)=>[cx(c),ry(r)];
 const hname=(c,r)=>r==='+'?`下方 + 軌（第 ${c} 孔附近）`:r==='-'?`下方 − 軌（第 ${c} 孔附近）`:`${r}${c}`;
 const C={red:'#e23b2e',black:'#22262b',yellow:'#f2c230',green:'#1f9d55',blue:'#2f6fec',orange:'#f28a1d',purple:'#8a4fd8',white:'#f4f4f4',brown:'#8a5a2b',gray:'#9aa3ab'};
@@ -285,7 +286,7 @@ function drawBreadboard(g){
   el('rect',{x:BX,y:BY+H-10,width:W,height:10,rx:4,fill:'#ddd5c4'},g);
   el('rect',{x:BX+8,y:BY+82+5*P-9,width:W-16,height:18,rx:4,fill:'#e7e0d1'},g);
   // 軌道線
-  [['T+','#e23b2e',-1],['T-','#2f6fec',1],['+','#e23b2e',-1],['-','#2f6fec',1]].forEach(([r,col,d])=>{
+  [['T+','#e23b2e',1],['T-','#2f6fec',-1],['+','#e23b2e',1],['-','#2f6fec',-1]].forEach(([r,col,d])=>{
     el('line',{x1:BX+24,x2:BX+W-24,y1:ry(r)+d*11,y2:ry(r)+d*11,stroke:col,'stroke-width':2},g);
     txt(BX+12,ry(r)+5,r.replace('T',''),{fill:col,'font-size':15,'font-weight':900,'text-anchor':'middle'},g);
   });
@@ -504,7 +505,7 @@ function bbTexture(W,H){
     g.fillStyle='#f5f1e8';g.fillRect(0,0,W,H);
     g.fillStyle='#e7e0d1';g.fillRect(8,82+5*P-9,W-16,18);
     const X=x=>x-BX,Y=y=>y-BY;
-    [['T+','#e23b2e',-1],['T-','#2f6fec',1],['+','#e23b2e',-1],['-','#2f6fec',1]].forEach(([r,col,d])=>{
+    [['T+','#e23b2e',1],['T-','#2f6fec',-1],['+','#e23b2e',1],['-','#2f6fec',-1]].forEach(([r,col,d])=>{
       g.strokeStyle=col;g.lineWidth=2;g.beginPath();g.moveTo(24,Y(ry(r))+d*11);g.lineTo(W-24,Y(ry(r))+d*11);g.stroke();
       g.fillStyle=col;g.font='900 15px sans-serif';g.textAlign='center';g.fillText(r.replace('T',''),12,Y(ry(r))+5);
     });
